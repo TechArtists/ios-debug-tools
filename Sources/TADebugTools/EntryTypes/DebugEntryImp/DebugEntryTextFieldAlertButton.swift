@@ -23,67 +23,53 @@ SOFTWARE.
 */
 
 //
-//  DebugEntryConstant.swift
+//  DebugEntryTextFieldAlertButton.swift
 //  TADebugTools
 //
-//  Created by Robert Tataru on 09.12.2024.
+//  Created by Robert Tataru on 13.02.2025.
 //
 
 import SwiftUI
 
-public class DebugEntryConstant<T: Sendable>: DebugEntryConstantUpdatingProtocol {
+public class DebugEntryTextFieldAlertButton: DebugEntryConfirmableProtocol, ObservableObject {
+    public typealias Value = String
 
     weak public var taDebugToolConfiguration: TADebugToolConfiguration?
     
     public var id: UUID
     public var title: String
-    @Published
-    public var wrappedValue: T
+    public var wrappedValue: String
     public var labels: [DebugToolLabel]
     
-    public lazy var stream: AsyncStream<Value> = { [weak self] in
+    public lazy var stream: AsyncStream<String> = { [weak self] in
         AsyncStream { continuation in
             self?.continuation = continuation
         }
     }()
-    public var continuation: AsyncStream<T>.Continuation?
+    public var continuation: AsyncStream<String>.Continuation?
     
-    @MainActor
-    public var renderView: AnyView {
-        AnyView(DebugEntryConstantView(debugEntry: self))
-    }
+    public var onUpdateFromDebugTool: ((String) -> Void)?
+    public var onUpdateFromApp: ((String) -> Void) = { _ in }
     
-    public var onUpdateFromDebugTool: ((T) -> Void)?
+    public var onConfirm: (String) -> Void
     
-    public var onUpdateFromApp: (((T)) -> Void) = { _ in }
-    
-    public var updateValue: () -> T
-    
+    public var storage: AnyStorage<String>?
+
     public init(
-        title: String,
-        wrappedValue: @escaping @autoclosure () -> T,
-        labels: [DebugToolLabel] = [],
-        taDebugToolConfiguration: TADebugToolConfiguration? = nil,
-        id: UUID = UUID()
+        title: String, wrappedValue: String = "", storage: AnyStorage<String>? = nil, labels: [DebugToolLabel] = [], onConfirm: @escaping (String) -> Void,
+        taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
         self.title = title
+        self.wrappedValue = wrappedValue
+        self.storage = storage
         self.labels = labels
-        self.wrappedValue = wrappedValue()
+        self.onConfirm = onConfirm
         self.taDebugToolConfiguration = taDebugToolConfiguration
-        self.updateValue = wrappedValue
     }
-}
-
-public struct DebugEntryConstantView<T: Sendable>: View {
     
-    @ObservedObject var debugEntry: DebugEntryConstant<T>
-    
-    public var body: some View {
-        Text("\(debugEntry.title): \(String(describing: debugEntry.wrappedValue))")
-            .textSelection(.enabled)
-            .onAppear {
-                debugEntry.wrappedValue = debugEntry.updateValue()
-            }
+    @MainActor
+    public var renderView: AnyView {
+        AnyView(DebugEntryTextInputButtonView(debugEntry: self))
     }
 }

@@ -23,31 +23,36 @@ SOFTWARE.
 */
 
 //
-//  DebugEntryBool.swift
+//  DebugEntryTextField.swift
 //  TADebugTools
 //
 //  Created by Robert Tataru on 09.12.2024.
 //
 
 import SwiftUI
+import Combine
 
-public final class DebugEntryBool: DebugEntryProtocol {
-    
+public class DebugEntryTextField: DebugEntryProtocol {
+
     weak public var taDebugToolConfiguration: TADebugToolConfiguration?
-
+    
     public var id: UUID
+    
     public var title: String
+    
     @Published
-    public var wrappedValue: Bool {
+    public var wrappedValue: String  {
         didSet {
             isInitialized = true
-            if wrappedValue != oldValue {
+            if let taDebugToolConfiguration, wrappedValue != oldValue {
                 id = UUID()
-                taDebugToolConfiguration?.objectWillChange.send()
+                storage?.update(wrappedValue)
+                taDebugToolConfiguration.objectWillChange.send()
             }
         }
     }
-    public var labels: [DebugToolLabel]
+    
+    public var labels: [DebugToolLabel] = []
     
     public lazy var stream: AsyncStream<Value> = { [weak self] in
         AsyncStream { continuation in
@@ -56,31 +61,33 @@ public final class DebugEntryBool: DebugEntryProtocol {
     }()
     
     public var continuation: AsyncStream<Value>.Continuation?
-    
+
+    @MainActor
     public var renderView: AnyView {
-        AnyView(DebugEntryBoolView(debugEntry: self))
+        AnyView(DebugEntryTextFieldView(debugEntry: self))
     }
     
-    public var onUpdateFromDebugTool: ((Bool) -> Void)?
+    public var onUpdateFromDebugTool: ((String) -> Void)?
     
-    public var onUpdateFromApp: ((Bool) -> Void) = { _ in }
+    public var onUpdateFromApp: ((String) -> Void) = { _ in }
     
     public var isInitialized: Bool = false
     
+    public var storage: AnyStorage<String>?
+    
+    var cancellables: Set<AnyCancellable> = []
+    
     public init(
-        title: String,
-        wrappedValue: Bool?,
-        labels: [DebugToolLabel] = [],
-        taDebugToolConfiguration: TADebugToolConfiguration? = nil,
-        id: UUID = UUID()
+        title: String, wrappedValue: String?, labels: [DebugToolLabel] = [], storage: AnyStorage<String>? = nil, taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
         self.title = title
+        self.storage = storage
         if let wrappedValue {
             self.wrappedValue = wrappedValue
             isInitialized = true
         } else {
-            self.wrappedValue = false
+            self.wrappedValue = ""
         }
         self.labels = labels
         self.taDebugToolConfiguration = taDebugToolConfiguration
@@ -90,21 +97,14 @@ public final class DebugEntryBool: DebugEntryProtocol {
                 self.wrappedValue = newValue
             }
         }
-    }
-}
-
-public struct DebugEntryBoolView: View {
-    
-    @ObservedObject var debugEntry: DebugEntryBool
-    
-    public var body: some View {
-        Toggle(isOn: $debugEntry.wrappedValue) {
-            Text(debugEntry.title)
-        }
-        .onChange(of: debugEntry.wrappedValue) { newValue in
-            debugEntry.continuation?.yield(newValue)
-            debugEntry.onUpdateFromDebugTool?(newValue)
-        }
-        .disabled(!debugEntry.isInitialized)
+        
+        storage?.$value
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newValue in
+                guard let self = self, self.wrappedValue != newValue else { return }
+                self.wrappedValue = newValue
+            }
+            .store(in: &cancellables)
     }
 }

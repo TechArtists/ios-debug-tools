@@ -38,9 +38,8 @@ public class DebugEntryButton: DebugEntryActionProtocol {
     public var id: UUID
     public var title: String
     public var labels: [DebugToolLabel]
-    public var onTapGesture: (@Sendable () -> Void)?
-    public var onTapShowDestinationView: AnyView?
-    public var wrappedValue: Void
+    public var onTapShowDestinationView: (() -> AnyView)?
+    public var wrappedValue: (@Sendable () -> Void)
     public lazy var stream: AsyncStream<Value> = { [weak self] in
         AsyncStream { continuation in
             self?.continuation = continuation
@@ -53,44 +52,22 @@ public class DebugEntryButton: DebugEntryActionProtocol {
         AnyView(DebugEntryButtonView(debugEntry: self))
     }
     
-    public var onUpdateFromDebugTool: ((Void) -> Void)?
+    public var onUpdateFromDebugTool: ((@escaping (@Sendable () -> Void)) -> Void)?
     
-    public var onUpdateFromApp: ((()) -> Void) = { _ in }
+    public var onUpdateFromApp: ((@escaping (@Sendable () -> Void)) -> Void) = { _ in }
+    
+    public var storage: AnyStorage<Value>?
     
     public init(
-        title: String,
-        wrappedValue: Void,
-        labels: [DebugToolLabel] = [],
-        onTapGesture: (@Sendable () -> Void)? = nil,
-        onTapShowDestinationView: AnyView? = nil,
-        taDebugToolConfiguration: TADebugToolConfiguration? = nil,
-        id: UUID = UUID()
+        title: String, wrappedValue: @escaping (@Sendable () -> Void), storage: AnyStorage<Value>? = nil, labels: [DebugToolLabel] = [],
+        onTapShowDestinationView: (() -> AnyView)? = nil, taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
         self.title = title
         self.wrappedValue = wrappedValue
         self.labels = labels
+        self.storage = storage
         self.onTapShowDestinationView = onTapShowDestinationView
-        self.onTapGesture = onTapGesture
         self.taDebugToolConfiguration = taDebugToolConfiguration
-    }
-}
-
-public struct DebugEntryButtonView: View {
-    
-    var debugEntry: any DebugEntryActionProtocol
-    
-    public var body: some View {
-        if let onTapGesture = debugEntry.onTapGesture {
-            Button {
-                onTapGesture()
-            } label: {
-                Text(debugEntry.title)
-            }
-        } else {
-            if let onTapShowDestinationView = debugEntry.onTapShowDestinationView {
-                NavigationLink(debugEntry.title, destination: onTapShowDestinationView)
-            }
-        }
     }
 }

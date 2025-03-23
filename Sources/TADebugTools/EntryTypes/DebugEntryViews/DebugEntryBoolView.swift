@@ -23,44 +23,26 @@ SOFTWARE.
 */
 
 //
-//  DebugEntryProtocol.swift
+//  DebugEntryBoolView.swift
 //  TADebugTools
 //
-//  Created by Robert Tataru on 09.12.2024.
+//  Created by Robert Tataru on 20.03.2025.
 //
 
 import SwiftUI
 
-public protocol DebugEntryProtocol: Identifiable, ObservableObject {
-    associatedtype Value
+public struct DebugEntryBoolView: View {
     
-    var taDebugToolConfiguration: TADebugToolConfiguration? { get set }
+    @ObservedObject var debugEntry: DebugEntryBool
     
-    var id: UUID { get }
-    var title: String { get }
-    var wrappedValue: Value { get }
-    var labels: [DebugToolLabel] { get }
-    var stream: AsyncStream<Value> { get }
-    var continuation: AsyncStream<Value>.Continuation? { get }
-    var onUpdateFromDebugTool: ((Value) -> Void)? { get }
-    var onUpdateFromApp: ((Value) -> Void) { get }
-    
-    @MainActor
-    var renderView: AnyView { get }
-}
-
-protocol DebugEntryActionProtocol: DebugEntryProtocol {
-    
-    var onTapGesture: (@Sendable () -> Void)? { get }
-    var onTapShowDestinationView : AnyView? { get }
-}
-
-protocol DebugEntryMultipleValuesProtocol: DebugEntryProtocol {
-    
-    var possibleValues: [String] { get }
-}
-
-protocol DebugEntryConstantUpdatingProtocol: DebugEntryProtocol {
-    
-    var updateValue: () -> Value { get }
+    public var body: some View {
+        Toggle(isOn: $debugEntry.wrappedValue) {
+            Text(debugEntry.title)
+        }
+        .onChange(of: debugEntry.wrappedValue) { newValue in
+            debugEntry.continuation?.yield(newValue)
+            debugEntry.onUpdateFromDebugTool?(newValue)
+        }
+        .disabled(!debugEntry.isInitialized)
+    }
 }

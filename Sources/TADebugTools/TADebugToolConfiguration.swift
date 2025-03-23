@@ -36,6 +36,7 @@ open class TADebugToolConfiguration: ObservableObject {
     @Published private(set) var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]
     
     let password: String?
+    var isDebuggableReady = false
     
     public init(password: String? = nil) {
         self.password = password
@@ -48,6 +49,8 @@ open class TADebugToolConfiguration: ObservableObject {
             DebugToolSection.others: [:]
         ]
         UserDefaults.standard.setValue(false, forKey: DefaultsConstants.hasEnteredCorrectPassword)
+        //If needed might not be needed :)
+        prepareDebuggableIfNeeded()
     }
     
     public func addEntry(
@@ -61,20 +64,37 @@ open class TADebugToolConfiguration: ObservableObject {
     public func getEntry(_ title: String, in section: DebugToolSection) -> (any DebugEntryProtocol)? {
         sections[section]?[title]
     }
+    
+    func prepareDebuggableIfNeeded() {
+        guard !isDebuggableReady else { return }
+        isDebuggableReady = true
+        prepareDebuggable()
+    }
+    
+    private func prepareDebuggable() {
+        let mirror = Mirror(reflecting: self)
+        for (_, value) in mirror.children {
+            guard let preparable = value as? Preparable else {
+                continue
+            }
+            
+            preparable.prepare(ownedBy: self)
+        }
+    }
 
     private var defaultsEntries: [String: any DebugEntryProtocol] {
         [
-            "Show Defaults":  DebugEntryButton(
+            "Show Defaults": DebugEntryButton(
                 title: "Show Defaults",
-                wrappedValue: (),
-                onTapShowDestinationView: AnyView(
-                    TADebugDictionaryView(dictionary: UserDefaults.standard.dictionaryRepresentation().compactMapValues { "\($0)" })
-                )
-            ),
-            "Multiple Options": DebugEntryOptions(
-                title: "Multiple Options",
-                wrappedValue: "Option 1",
-                possibleValues: ["Option 1", "Option 2", "Option 3"]
+                wrappedValue: {},
+                onTapShowDestinationView: {
+                    AnyView(
+                        TADebugDictionaryView(
+                            dictionary: UserDefaults.standard.dictionaryRepresentation()
+                                .compactMapValues { "\($0)" }
+                        )
+                    )
+                }
             )
         ]
     }
@@ -83,8 +103,7 @@ open class TADebugToolConfiguration: ObservableObject {
         [
             "Open App Settings": DebugEntryButton(
                 title: "Open App Settings",
-                wrappedValue: (),
-                onTapGesture: {
+                wrappedValue: {
                     Task { @MainActor in
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             if UIApplication.shared.canOpenURL(url) {

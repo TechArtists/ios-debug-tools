@@ -21,62 +21,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
 //
-//  DebugEntryTextInputButton.swift
+//  DebugEntryTextInputButtonView.swift
 //  TADebugTools
 //
-//  Created by Robert Tataru on 13.02.2025.
+//  Created by Robert Tataru on 20.03.2025.
 //
 
 import SwiftUI
-
-public class DebugEntryTextInputButton: DebugEntryActionProtocol, ObservableObject {
-    public typealias Value = String
-
-    weak public var taDebugToolConfiguration: TADebugToolConfiguration?
-    
-    public var id: UUID
-    public var title: String
-    public var wrappedValue: String
-    public var labels: [DebugToolLabel]
-    
-    public var onTapGesture: (@Sendable () -> Void)? = nil
-    public var onTapShowDestinationView: AnyView? = nil
-    
-    public lazy var stream: AsyncStream<String> = { [weak self] in
-        AsyncStream { continuation in
-            self?.continuation = continuation
-        }
-    }()
-    public var continuation: AsyncStream<String>.Continuation?
-    
-    public var onUpdateFromDebugTool: ((String) -> Void)?
-    public var onUpdateFromApp: ((String) -> Void) = { _ in }
-    
-    public var onConfirm: (String) -> Void
-
-    public init(
-        title: String,
-        wrappedValue: String = "",
-        labels: [DebugToolLabel] = [],
-        onConfirm: @escaping (String) -> Void,
-        taDebugToolConfiguration: TADebugToolConfiguration? = nil,
-        id: UUID = UUID()
-    ) {
-        self.id = id
-        self.title = title
-        self.wrappedValue = wrappedValue
-        self.labels = labels
-        self.onConfirm = onConfirm
-        self.taDebugToolConfiguration = taDebugToolConfiguration
-    }
-    
-    @MainActor
-    public var renderView: AnyView {
-        AnyView(DebugEntryTextInputButtonView(debugEntry: self))
-    }
-}
 
 public struct TextFieldAlert {
     let title: String
@@ -131,10 +83,8 @@ extension View {
     }
 }
 
-// MARK: - DebugEntryTextInputButtonView
-
 public struct DebugEntryTextInputButtonView: View {
-    @ObservedObject var debugEntry: DebugEntryTextInputButton
+    @ObservedObject var debugEntry: DebugEntryTextFieldAlertButton
     @State private var isShowingAlert = false
 
     public var body: some View {

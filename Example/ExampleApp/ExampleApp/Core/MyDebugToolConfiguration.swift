@@ -53,41 +53,35 @@ public class MyDebugToolConfiguration: TADebugToolConfiguration {
     
     let mailSenderEntry: DebugEntryButton = .init(
         title: "Send Logs To Mail",
-        wrappedValue: (),
-        onTapShowDestinationView: AnyView(
-            MailComposeView(fileURL: sampleFileURL)
-        )
+        wrappedValue: {},
+        onTapShowDestinationView: {
+            AnyView(MailComposeView(fileURL: sampleFileURL))
+        }
     )
     
-    let buttonTexfieldEntry: DebugEntryTextInputButton = .init(title: "Example button with TextField") { text in
+    let textFieldEntry: DebugEntryTextField = .init(title: "Example TextField", wrappedValue: "Default")
+    
+    let buttonTexfieldEntry: DebugEntryTextFieldAlertButton = .init(title: "Example button with TextField") { text in
         print(text)
     }
     
     override init(password: String? = nil) {
+        
         super.init(password: password)
         addEntriesToSections()
     }
     
     func addEntriesToSections() {
-        self.addEntry(
-            isPremiumEntry,
-            to: .app
-        )
         
-        self.addEntry(
-            isPremium2Entry,
-            to: .app
-        )
+        self.addEntry( isPremiumEntry, to: .app)
         
-        self.addEntry(
-            mailSenderEntry,
-            to: .app
-        )
+        self.addEntry( isPremium2Entry, to: .app)
         
-        self.addEntry(
-            buttonTexfieldEntry,
-            to: .others
-        )
+        self.addEntry( mailSenderEntry, to: .app)
+        
+        self.addEntry( buttonTexfieldEntry, to: .others)
+        
+        self.addEntry(textFieldEntry, to: .others)
     }
     
     //pass the service here

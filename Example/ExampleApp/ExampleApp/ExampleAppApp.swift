@@ -60,6 +60,13 @@ struct ExampleAppApp: App {
                         Text("PaywallWithDebugEntryView")
                             .font(.title3)
                     }
+                    
+                    NavigationLink {
+                        PaywalSingleSourceTruth()
+                    } label: {
+                        Text("PaywalSingleSourceTruth")
+                            .font(.title3)
+                    }
                 }
             }
             .environmentObject(debugToolConfiguration)
