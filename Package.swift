@@ -28,8 +28,7 @@ import PackageDescription
 let package = Package(
     name: "TADebugTools",
     platforms: [
-        .iOS(.v15),
-        .macOS(.v12)
+        .iOS(.v15)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -38,19 +37,12 @@ let package = Package(
             targets: ["TADebugTools"]),
     ],
     dependencies: [
-//        .package(
-//            url: "https://github.com/swhitty/FlyingFox",
-//            from: "0.20.0"
-//        )
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "TADebugTools"
-//            dependencies: [
-//                .product(name: "FlyingFox", package: "FlyingFox")
-//            ]
         ),
         .testTarget(
             name: "TADebugToolsTests",
