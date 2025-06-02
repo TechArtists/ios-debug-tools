@@ -1,7 +1,7 @@
 
 # TADebugTools
 
-**TADebugTools** is a lightweight, modular in-app debugging toolkit for SwiftUI applications. It allows developers to view, edit, and trigger debugging entries directly from within the app, with support for dynamic values, user defaults, and custom actions.
+**TADebugTools** is a lightweight, modular in-app debugging toolkit for SwiftUI applications. It allows developers to view, edit, and trigger debugging entries directly from within the app.
 
 ---
 
