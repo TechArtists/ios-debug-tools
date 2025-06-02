@@ -1,3 +1,4 @@
+
 # TADebugTools
 
 **TADebugTools** is a lightweight, modular in-app debugging toolkit for SwiftUI applications. It allows developers to view, edit, and trigger debugging entries directly from within the app, with support for dynamic values, user defaults, and custom actions.
@@ -54,17 +55,21 @@ Or add it via Xcode:
 
 ### 1. Create a Custom Configuration
 
-Subclass `TADebugToolConfiguration` and register your debug entries:
+You can either **sync entries with external source of truth** (like `@AppStorage`) or **manage the source of truth from the configuration itself**.
+
+#### Option A: External Source of Truth
 
 ```swift
+import SwiftUI
 import TADebugTools
 
-class MyDebugToolConfiguration: TADebugToolConfiguration {
-    let isPremiumEntry = DebugEntryBool(
+public class MyDebugToolConfiguration: TADebugToolConfiguration {
+    
+    let isPremiumEntry: DebugEntryBool = .init(
         title: "Is Premium",
         wrappedValue: UserDefaults.standard.bool(forKey: "isPremium")
     )
-
+    
     override init(password: String? = nil) {
         super.init(password: password)
         addEntry(isPremiumEntry, to: .app)
@@ -72,46 +77,114 @@ class MyDebugToolConfiguration: TADebugToolConfiguration {
 }
 ```
 
-### 2. Present the Debug Tool UI
+```swift
+struct PaywallWithDebugEntryView: View {
+    @EnvironmentObject var debugToolConfiguration: MyDebugToolConfiguration
+    @AppStorage("isPremium") var isPremium: Bool = UserDefaults.standard.bool(forKey: "isPremium")
+    
+    var body: some View {
+        VStack {
+            Toggle(isOn: $isPremium) {
+                Text("Is Premium")
+            }
+            .onAppear {
+                debugToolConfiguration.isPremiumEntry.onUpdateFromDebugTool = { newValue in
+                    if self.isPremium != newValue {
+                        self.isPremium = newValue
+                    }
+                }
+            }
+            .onChange(of: isPremium, perform: debugToolConfiguration.isPremiumEntry.onUpdateFromApp)
+        }
+        .padding()
+    }
+}
+```
 
-You can show the debug UI using a button or gesture:
+#### Option B: Configuration is the Source of Truth
 
 ```swift
+import SwiftUI
 import TADebugTools
 
-struct DebugToolButton: View {
-    @EnvironmentObject var debugToolConfiguration: MyDebugToolConfiguration
-    @State private var isPresented = false
+enum ServiceEnvironment: String, CaseIterable {
+    case production
+    case staging
+}
 
-    var body: some View {
-        Button("Open Debug Tool") {
-            isPresented = true
+public class MyDebugToolConfiguration2: TADebugToolConfiguration {
+    
+    @Debuggable(key: "isDebuggableWorking")
+    var isDebuggableWorking = false
+    
+    @Debuggable(title: "Test Action") var actionPrint = {
+        print("Action works")
+    }
+    
+    @Debuggable(title: "Async Action") var asyncActionPrint = {
+        Task {
+            try await Task.sleep(for: .seconds(1))
+            print("Async Action works")
         }
-        .popover(isPresented: $isPresented) {
+    }
+    
+    @Debuggable(key: "testConstant", section: .defaults)
+    var testConstant: String = "Hello World"
+    
+    @Debuggable(key: "testTextField", textType: .textField)
+    var testTextField: String = "Hello World"
+    
+    @Debuggable(key: "environment")
+    var environment: ServiceEnvironment = .staging
+
+}
+```
+
+```swift
+struct PaywalSingleSourceTruth: View {
+    @StateObject var debugToolConfiguration: MyDebugToolConfiguration2 = .init()
+    @State var presentDevToolView: Bool = false
+    
+    var body: some View {
+        VStack {
+            Toggle(isOn: debugToolConfiguration.$isDebuggableWorking) {
+                Text("Is Debugable Working")
+            }
+            
+            Button("Present Dev Tool") {
+                presentDevToolView = true
+            }
+            .popover(isPresented: $presentDevToolView) {
+                TADebugToolView(configuration: debugToolConfiguration)
+            }
+        }
+        .padding()
+    }
+}
+```
+
+---
+
+## UI Presentation
+
+You can present the debug UI using a gesture or simple button:
+
+```swift
+import SwiftUI
+
+struct PresentDebugView: View {
+    @EnvironmentObject var debugToolConfiguration: MyDebugToolConfiguration
+    @State var presentDevToolView: Bool = false
+    
+    var body: some View {
+        Button("Present Dev Tool") {
+            presentDevToolView = true
+        }
+        .popover(isPresented: $presentDevToolView) {
             TADebugToolView(configuration: debugToolConfiguration)
         }
     }
 }
-```
-
-### 3. Bind Debuggable Properties
-
-Use `@Debuggable` for seamless integration between debug state and app logic:
-
-```swift
-class MyDebugToolConfiguration2: TADebugToolConfiguration {
-    @Debuggable(key: "isDebuggableWorking")
-    var isDebuggableWorking = false
-
-    @Debuggable(title: "Print Action")
-    var printAction = {
-        print("Action triggered")
-    }
-}
-```
-
-```swift
-Toggle("Debug Mode", isOn: debugToolConfiguration.$isDebuggableWorking)
 ```
 
 ---
