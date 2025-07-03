@@ -29,14 +29,6 @@ SOFTWARE.
 //  Created by Robert Tataru on 09.12.2024.
 //
 
-import SwiftUI
-
-//
-//  TADebugToolView.swift
-//  TADebugTools
-//
-//  Created by Robert Tataru on 09.12.2024.
-//
 
 import SwiftUI
 
