@@ -65,9 +65,8 @@ public class MyDebugToolConfiguration: TADebugToolConfiguration {
         print(text)
     }
     
-    override init(password: String? = nil) {
-        
-        super.init(password: password)
+    override public init(passwordType: TADebugToolConfiguration.PasswordType = .static(password: "")) {
+        super.init(passwordType: passwordType)
         addEntriesToSections()
     }
     

@@ -34,7 +34,7 @@ import TADebugTools
 
 @main
 struct ExampleAppApp: App {
-    @StateObject var debugToolConfiguration: MyDebugToolConfiguration = .init(password: "123")
+    @StateObject var debugToolConfiguration: MyDebugToolConfiguration = .init(passwordType: .static(password: "123"))
 
     var body: some Scene {
         WindowGroup {

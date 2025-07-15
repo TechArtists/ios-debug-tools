@@ -35,11 +35,11 @@ open class TADebugToolConfiguration: ObservableObject {
     
     @Published private(set) var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]
     
-    let password: String?
+    let passwordManager: PasswordManager
     var isDebuggableReady = false
     
-    public init(password: String? = nil) {
-        self.password = password
+    public init(passwordType: PasswordType = .static(password: "")) {
+        self.passwordManager = PasswordManager(passwordType: passwordType)
         self.sections = [
             DebugToolSection.app: [:],
             DebugToolSection.appSettings: appSettingEntries,

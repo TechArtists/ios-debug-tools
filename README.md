@@ -70,9 +70,9 @@ public class MyDebugToolConfiguration: TADebugToolConfiguration {
         wrappedValue: UserDefaults.standard.bool(forKey: "isPremium")
     )
     
-    override init(password: String? = nil) {
-        super.init(password: password)
-        addEntry(isPremiumEntry, to: .app)
+    override public init(passwordType: TADebugToolConfiguration.PasswordType = .static(password: "")) {
+        super.init(passwordType: passwordType)
+        addEntriesToSections()
     }
 }
 ```

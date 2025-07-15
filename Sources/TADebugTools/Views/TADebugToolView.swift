@@ -51,7 +51,7 @@ public struct TADebugToolView: View {
             TADebugPasswordView(
                 passwordInput: $passwordInput,
                 isFocused: _isFocused,
-                keyboardType: keyBoardType()
+                keyboardType: configuration.passwordManager.keyBoardType()
             )
         } else {
             TADebugToolSectionsView(configuration: configuration, ipAddress: ipAddress)
@@ -68,18 +68,13 @@ extension TADebugToolView {
             return false
         }
         
-        guard let password = configuration.password else { return false }
-        let isPasswordCorrect = (password == passwordInput)
+        let isPasswordCorrect = configuration.passwordManager.isPasswordCorrect(passwordInput)
         
         if isPasswordCorrect {
             UserDefaults.standard.setValue(true, forKey: DefaultsConstants.hasEnteredCorrectPassword)
         }
         
         return !isPasswordCorrect
-    }
-    
-    private func keyBoardType() -> UIKeyboardType {
-        (configuration.password?.isNumeric ?? false) ? .numberPad : .default
     }
 }
 
