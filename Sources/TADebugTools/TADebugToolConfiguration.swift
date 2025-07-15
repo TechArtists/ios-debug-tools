@@ -33,7 +33,7 @@ import SwiftUI
 
 open class TADebugToolConfiguration: ObservableObject {
     
-    @Published private(set) var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]
+    @Published var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]
     
     let passwordManager: PasswordManager
     var isDebuggableReady = false
