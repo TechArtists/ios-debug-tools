@@ -61,15 +61,11 @@ public struct TAPrettyLogViewer: View {
                 Text(errorMessage)
             }
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if !contents.isEmpty {
-                        wrapToggle
-                        ShareLink(item: contentsData(), preview: .init("analytics_report.txt"))
-                    }
-                }
-                ToolbarItemGroup(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
                     if !contents.isEmpty {
                         copyButton
+                        wrapToggle  
+                        ShareLink(item: contentsData(), preview: .init("analytics_report.txt"))
                     }
                 }
             }
@@ -224,6 +220,51 @@ public struct TAPrettyLogViewer: View {
         let parser = PrettyLogParser()
         let sessions = parser.parse(rawText)
         let generator = ReportGenerator()
+        
+        // If no sessions found, add debug information
+        if sessions.isEmpty {
+            var debugReport = """
+            📊 SESSION ANALYTICS - DEBUG MODE
+            ══════════════════════════════════
+            
+            ❌ No sessions found.
+            
+            📋 DEBUG INFORMATION:
+            ────────────────────
+            
+            """
+            
+            // Count total lines
+            let lines = rawText.components(separatedBy: .newlines)
+            let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            debugReport += "Total lines: \(lines.count)\n"
+            debugReport += "Non-empty lines: \(nonEmptyLines.count)\n\n"
+            
+            // Sample the first few lines
+            debugReport += "📄 FIRST 10 NON-EMPTY LINES:\n"
+            debugReport += "─────────────────────────────\n"
+            let sampleLines = Array(nonEmptyLines.prefix(10))
+            for (index, line) in sampleLines.enumerated() {
+                debugReport += "\(index + 1). \(line)\n"
+            }
+            
+            // Check for analytics lines specifically
+            let analyticsLines = lines.filter { $0.lowercased().contains("analytics") }
+            debugReport += "\n🔍 ANALYTICS LINES FOUND: \(analyticsLines.count)\n"
+            debugReport += "─────────────────────────────────────\n"
+            for (index, line) in Array(analyticsLines.prefix(5)).enumerated() {
+                debugReport += "\(index + 1). \(line)\n"
+            }
+            
+            if analyticsLines.isEmpty {
+                debugReport += "\n⚠️ No lines containing 'analytics' found.\n"
+                debugReport += "The parser filters for analytics events only.\n"
+                debugReport += "Check if your logs use a different category name.\n"
+            }
+            
+            return debugReport
+        }
+        
         return generator.generate(sessions: sessions)
     }
 
@@ -283,15 +324,4 @@ struct TAPrettyLogViewer_Previews: PreviewProvider {
         2025-10-24T14:46:32+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:MULTIPLE_AFFIRMATIONS_ADDED, view_name:EDIT_NOTE
         2025-10-24T14:46:36+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: AFFIRMATION_REFRESH_INTERVAL_CHANGED, params: refresh_interval:4
         2025-10-24T14:46:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:NOTE_UPDATED, view_name:EDIT_NOTE
-        2025-10-24T14:46:43+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:SETTINGS
-        2025-10-24T14:46:48+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: BUTTON_TAPPED, params: button:debug_tool_access
-        """
-    }
-
-    static var previews: some View {
-        NavigationStack {
-            TAPrettyLogViewer(text: sampleLog, title: "Improved Analytics Report")
-        }
-    }
-}
-#endif
+        2025-10-24T14:46:43+0300 info [EasyStickyNotes.analytics] : [

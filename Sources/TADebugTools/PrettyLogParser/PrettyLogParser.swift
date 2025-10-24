@@ -89,26 +89,37 @@ class PrettyLogParser {
             return nil
         }
         
-        // Main pattern for your app's log format
-        let pattern = #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{4})\s+(\w+)\s+\[([^\]]+)\]\s+:\s+(.+)$"#
+        // More flexible patterns to handle different log formats
+        let patterns = [
+            // Main pattern: 2025-10-24T14:45:37+0300 info [category] : message
+            #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4})\s+(\w+)\s+\[([^\]]+)\]\s+:\s+(.+)$"#,
+            // Alternative pattern: timestamp level [category] message (no colon)  
+            #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4})\s+(\w+)\s+\[([^\]]+)\]\s+(.+)$"#,
+            // Simpler pattern: just timestamp and message with brackets
+            #"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4}).*\[([^\]]+)\].*?:\s*(.+)$"#
+        ]
         
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) else {
-            return nil
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) else {
+                continue
+            }
+            
+            let timestampStr = String(line[Range(match.range(at: 1), in: line)!])
+            let level = match.numberOfRanges > 2 ? String(line[Range(match.range(at: 2), in: line)!]) : "info"
+            let category = String(line[Range(match.range(at: match.numberOfRanges - 2), in: line)!])
+            let message = String(line[Range(match.range(at: match.numberOfRanges - 1), in: line)!])
+            
+            guard let timestamp = parseTimestamp(timestampStr) else {
+                continue
+            }
+            
+            let params = extractParams(from: message)
+            
+            return LogEntry(timestamp: timestamp, level: level, category: category, message: message, params: params)
         }
         
-        let timestampStr = String(line[Range(match.range(at: 1), in: line)!])
-        let level = String(line[Range(match.range(at: 2), in: line)!])
-        let category = String(line[Range(match.range(at: 3), in: line)!])
-        let message = String(line[Range(match.range(at: 4), in: line)!])
-        
-        guard let timestamp = parseTimestamp(timestampStr) else {
-            return nil
-        }
-        
-        let params = extractParams(from: message)
-        
-        return LogEntry(timestamp: timestamp, level: level, category: category, message: message, params: params)
+        return nil
     }
     
     private func parseTimestamp(_ str: String) -> Date? {
@@ -158,8 +169,13 @@ class PrettyLogParser {
     }
     
     private func processLogEntry(_ entry: LogEntry) {
-        // Only process analytics events - skip superwall and other categories
-        if !config.allowedCategories.contains(entry.category.lowercased()) {
+        // More flexible category filtering - check if category contains any allowed category
+        let categoryLower = entry.category.lowercased()
+        let isAllowedCategory = config.allowedCategories.contains { allowedCategory in
+            categoryLower.contains(allowedCategory.lowercased())
+        }
+        
+        if !isAllowedCategory {
             return
         }
         
