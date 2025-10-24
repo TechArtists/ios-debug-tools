@@ -37,6 +37,9 @@ struct EventConfig {
     
     // Minimum duration for screens (in seconds) to avoid 0s displays
     let minimumScreenDuration: TimeInterval = 0.1
+    
+    // Categories to process - only analytics events
+    let allowedCategories = ["analytics"]
 }
 
 // MARK: - Parser
@@ -155,6 +158,11 @@ class PrettyLogParser {
     }
     
     private func processLogEntry(_ entry: LogEntry) {
+        // Only process analytics events - skip superwall and other categories
+        if !config.allowedCategories.contains(entry.category.lowercased()) {
+            return
+        }
+        
         // Create unique event ID to prevent duplicates
         let eventId = "\(entry.timestamp.timeIntervalSince1970)_\(entry.message.hashValue)"
         if processedEventIds.contains(eventId) {
@@ -162,15 +170,23 @@ class PrettyLogParser {
         }
         processedEventIds.insert(eventId)
         
-        // Start new session
-        if isSessionStart(entry) {
+        // Start new session only if no current session exists
+        if isSessionStart(entry) && currentSessionIndex == nil {
             startNewSession(entry)
             return
         }
         
         // Auto-create session if none exists and we see important activity
         if currentSessionIndex == nil && (isScreenView(entry) || isUserAction(entry)) {
-            startNewSession(entry)
+            // Create a synthetic session start
+            let syntheticEntry = LogEntry(
+                timestamp: entry.timestamp.addingTimeInterval(-1), 
+                level: entry.level, 
+                category: entry.category, 
+                message: "App launched (inferred)", 
+                params: [:]
+            )
+            startNewSession(syntheticEntry)
         }
         
         guard let idx = currentSessionIndex else { return }
@@ -190,6 +206,7 @@ class PrettyLogParser {
         // Track session end
         if isSessionEnd(entry) {
             sessions[idx].endTime = entry.timestamp
+            currentSessionIndex = nil // Close the session
         }
     }
     
@@ -320,12 +337,28 @@ class PrettyLogParser {
     private func addScreenVisit(sessionIndex: Int, screenName: String, timestamp: Date) {
         let formattedName = formatScreenName(screenName)
         
-        // Don't add duplicate consecutive screens with very short intervals
+        // Check for exact duplicate screens (same name within short time window)
         if let lastScreen = sessions[sessionIndex].screens.last,
            lastScreen.screenName == formattedName {
             let timeSinceLastScreen = timestamp.timeIntervalSince(lastScreen.entryTime)
-            if timeSinceLastScreen < 1.0 { // Less than 1 second, likely duplicate
+            if timeSinceLastScreen < 2.0 { // Less than 2 seconds, likely duplicate
                 return
+            }
+        }
+        
+        // Also check if this screen name already exists in the session (avoid false back-navigation)
+        let existingScreens = sessions[sessionIndex].screens.map { $0.screenName }
+        if existingScreens.contains(formattedName) {
+            // If it's a return to a previous screen, check if it makes logical sense
+            if let lastScreen = sessions[sessionIndex].screens.last,
+               let lastIndex = existingScreens.lastIndex(of: formattedName) {
+                let timeSinceLastOccurrence = timestamp.timeIntervalSince(sessions[sessionIndex].screens[lastIndex].entryTime)
+                
+                // Only allow return to previous screen if enough time has passed (> 10 seconds)
+                // or if it's a legitimate navigation pattern
+                if timeSinceLastOccurrence < 10.0 && !isLegitimateNavigation(from: lastScreen.screenName, to: formattedName) {
+                    return
+                }
             }
         }
         
@@ -346,6 +379,24 @@ class PrettyLogParser {
         // Add new screen
         let visit = ScreenVisit(screenName: formattedName, entryTime: timestamp)
         sessions[sessionIndex].screens.append(visit)
+    }
+    
+    /// Check if navigation from one screen to another is legitimate
+    private func isLegitimateNavigation(from: String, to: String) -> Bool {
+        // Define legitimate navigation patterns
+        let legitimatePatterns: [(from: String, to: String)] = [
+            ("Dashboard", "Settings"),
+            ("Settings", "Dashboard"),
+            ("Create Note", "Dashboard"),
+            ("Paywall", "Dashboard"),
+            ("Onboarding Premium", "Paywall"),
+            ("Paywall", "Onboarding Premium")
+        ]
+        
+        return legitimatePatterns.contains { pattern in
+            from.lowercased().contains(pattern.from.lowercased()) && 
+            to.lowercased().contains(pattern.to.lowercased())
+        }
     }
     
     private func addUserAction(sessionIndex: Int, entry: LogEntry) {
