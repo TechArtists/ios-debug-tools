@@ -179,6 +179,21 @@ class PrettyLogParser {
             return
         }
         
+        // Skip adaptor confirmation lines - we only want the original sendEvent lines
+        if entry.message.contains("Adaptor:") && entry.message.contains("has logged event:") {
+            return
+        }
+        
+        // Skip other adaptor/system messages
+        if entry.message.contains("Adaptor:") && (
+            entry.message.contains("has been started") ||
+            entry.message.contains("Starting with install type") ||
+            entry.message.contains("Skipping Configuring") ||
+            entry.message.contains("setUserProperty:")
+        ) {
+            return
+        }
+        
         // Create unique event ID to prevent duplicates
         let eventId = "\(entry.timestamp.timeIntervalSince1970)_\(entry.message.hashValue)"
         if processedEventIds.contains(eventId) {
@@ -274,29 +289,50 @@ class PrettyLogParser {
     }
     
     private func isScreenView(_ entry: LogEntry) -> Bool {
+        // Only count original sendEvent lines for screen views
+        if entry.message.contains("sendEvent: ui_view_show") {
+            return true
+        }
+        
         return config.screenViewKeywords.contains { keyword in
-            entry.message.contains(keyword)
+            entry.message.contains(keyword) && !entry.message.contains("Adaptor:")
         }
     }
     
     private func isUserAction(_ entry: LogEntry) -> Bool {
-        // Check if it's a user action but not a screen view
+        // Skip adaptor confirmation messages
+        if entry.message.contains("Adaptor:") {
+            return false
+        }
+        
+        // Any sendEvent that isn't ui_view_show is considered a user action
+        if entry.message.contains("sendEvent:") {
+            // Extract event type to check if it's a screen view
+            if let start = entry.message.range(of: "sendEvent: ") {
+                let afterEvent = entry.message[start.upperBound...]
+                if let comma = afterEvent.firstIndex(of: ",") {
+                    let eventType = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
+                    
+                    // Only exclude screen view events
+                    if eventType == "ui_view_show" {
+                        return false
+                    }
+                    
+                    // Everything else is a user action
+                    return true
+                } else {
+                    let eventType = String(afterEvent).trimmingCharacters(in: .whitespaces)
+                    return eventType != "ui_view_show"
+                }
+            }
+        }
+        
+        // Fallback to keyword checking for non-sendEvent patterns
         let isAction = config.actionKeywords.contains { keyword in
-            entry.message.contains(keyword)
+            entry.message.contains(keyword) && !entry.message.contains("Adaptor:")
         }
         
-        // Additional specific events for your app
-        let specificEvents = [
-            "NOTE_OPENED", "NOTE_MODE_CHANGED", "FONT_FAMILY_CHANGED", 
-            "FONT_SIZE_CHANGED", "BACKGROUND_COLOR_CHANGED", "AFFIRMATION_REFRESH_INTERVAL_CHANGED",
-            "NOTE_UPDATED", "SAVE_NOTE", "CREATE_NOTE", "paywall_show", "paywall_exit"
-        ]
-        
-        let isSpecific = specificEvents.contains { event in
-            entry.message.contains(event)
-        }
-        
-        return isAction || isSpecific
+        return isAction
     }
     
     private func isSessionEnd(_ entry: LogEntry) -> Bool {
@@ -306,6 +342,17 @@ class PrettyLogParser {
     }
     
     private func extractScreenName(_ entry: LogEntry) -> String? {
+        // Handle sendEvent: ui_view_show format
+        if entry.message.contains("sendEvent: ui_view_show") {
+            if let name = entry.params["name"] {
+                return formatScreenName(name)
+            }
+            // Also check for type parameter for paywall screens
+            if let type = entry.params["type"] {
+                return formatScreenName("Paywall (\(type))")
+            }
+        }
+        
         for paramName in config.screenParamNames {
             if let value = entry.params[paramName] {
                 return formatScreenName(value)
@@ -315,6 +362,25 @@ class PrettyLogParser {
     }
     
     private func extractActionName(_ entry: LogEntry) -> String? {
+        // Handle sendEvent: format
+        if entry.message.contains("sendEvent:") {
+            if let start = entry.message.range(of: "sendEvent: ") {
+                let afterEvent = entry.message[start.upperBound...]
+                if let comma = afterEvent.firstIndex(of: ",") {
+                    let eventType = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
+                    
+                    // For BUTTON_TAPPED events, try to get the specific button name
+                    if eventType == "BUTTON_TAPPED", let buttonName = entry.params["button"] {
+                        return buttonName
+                    }
+                    
+                    return eventType
+                } else {
+                    return String(afterEvent).trimmingCharacters(in: .whitespaces)
+                }
+            }
+        }
+        
         // First try standard param names
         for paramName in config.actionParamNames {
             if let value = entry.params[paramName] {
@@ -322,16 +388,9 @@ class PrettyLogParser {
             }
         }
         
-        // Then try to extract from message
-        if entry.message.contains("sendEvent:") {
-            if let start = entry.message.range(of: "sendEvent: ") {
-                let afterEvent = entry.message[start.upperBound...]
-                if let comma = afterEvent.firstIndex(of: ",") {
-                    return String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
-                } else {
-                    return String(afterEvent).trimmingCharacters(in: .whitespaces)
-                }
-            }
+        // Try button parameter for BUTTON_TAPPED events
+        if entry.message.contains("BUTTON_TAPPED"), let buttonName = entry.params["button"] {
+            return buttonName
         }
         
         return nil
@@ -423,13 +482,14 @@ class PrettyLogParser {
         }
         
         let screenIdx = sessions[sessionIndex].screens.count - 1
+        let currentScreenName = sessions[sessionIndex].screens[screenIdx].screenName
         let actionName = extractActionName(entry) ?? extractEventTypeFromMessage(entry.message)
         
         // Determine action type from message content
         let actionType = categorizeAction(entry)
         
-        // Format details with all available parameters
-        let details = formatActionDetails(actionName, entry: entry)
+        // Format details with current screen context for comparison
+        let details = formatActionDetails(actionName, entry: entry, currentScreen: currentScreenName)
         
         let action = UserAction(timestamp: entry.timestamp, actionType: actionType, details: details, rawEvent: actionName)
         sessions[sessionIndex].screens[screenIdx].actions.append(action)
@@ -479,109 +539,130 @@ class PrettyLogParser {
     private func categorizeAction(_ entry: LogEntry) -> String {
         let msg = entry.message.lowercased()
         
+        // Check for button-related events first (more specific)
+        if msg.contains("button") || msg.contains("tap") {
+            return "👆"
+        }
+        
+        // Check for toggle events
+        if msg.contains("toggle") {
+            return "🔄"
+        }
+        
+        // Check for note-related events
         if msg.contains("note_opened") || msg.contains("note_selected") {
             return "👁️"
-        } else if msg.contains("note_mode_changed") || msg.contains("font_family_changed") || 
-                 msg.contains("font_size_changed") || msg.contains("background_color_changed") ||
-                 msg.contains("text_alignment_changed") {
+        }
+        
+        // Check for styling events
+        if msg.contains("font") || msg.contains("color") || msg.contains("alignment") || msg.contains("style") {
             return "🎨"
-        } else if msg.contains("affirmation") {
+        }
+        
+        // Check for affirmation events
+        if msg.contains("affirmation") {
             return "✨"
-        } else if msg.contains("paywall") {
+        }
+        
+        // Check for paywall events
+        if msg.contains("paywall") {
             return "💳"
-        } else if msg.contains("save") || msg.contains("update") {
-            return "💾"
-        } else if msg.contains("create") || msg.contains("add") {
-            return "➕"
-        } else if msg.contains("delete") || msg.contains("remove") {
-            return "🗑️"
-        } else if msg.contains("tap") || msg.contains("button") {
-            return "👆"
-        } else if msg.contains("settings") || msg.contains("setting_") {
-            return "⚙️"
-        } else if msg.contains("share") {
-            return "📤"
-        } else if msg.contains("onboarding") {
-            return "🚀"
-        } else if msg.contains("version") || msg.contains("update") {
-            return "🔄"
-        } else if msg.contains("selection_mode") {
-            return "☑️"
-        } else {
+        }
+        
+        // Check for save/update events
+        if msg.contains("save") || msg.contains("update") {
             return "💾"
         }
+        
+        // Check for create/add events
+        if msg.contains("create") || msg.contains("add") {
+            return "➕"
+        }
+        
+        // Check for delete/remove events
+        if msg.contains("delete") || msg.contains("remove") {
+            return "🗑️"
+        }
+        
+        // Check for settings events
+        if msg.contains("settings") || msg.contains("setting") {
+            return "⚙️"
+        }
+        
+        // Check for share events
+        if msg.contains("share") {
+            return "📤"
+        }
+        
+        // Check for onboarding events
+        if msg.contains("onboarding") {
+            return "🚀"
+        }
+        
+        // Check for version/update events
+        if msg.contains("version") || msg.contains("app_") {
+            return "🔄"
+        }
+        
+        // Check for premium/subscription events
+        if msg.contains("premium") || msg.contains("subscription") {
+            return "💎"
+        }
+        
+        // Default for unknown events
+        return "⚡"
     }
     
-    private func formatActionDetails(_ action: String, entry: LogEntry) -> String {
-        var details = formatScreenName(action)
+    private func formatActionDetails(_ action: String, entry: LogEntry, currentScreen: String? = nil) -> String {
+        // Extract the event name from sendEvent format
+        var eventName = action
+        if entry.message.contains("sendEvent:") {
+            if let start = entry.message.range(of: "sendEvent: ") {
+                let afterEvent = entry.message[start.upperBound...]
+                if let comma = afterEvent.firstIndex(of: ",") {
+                    eventName = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
+                } else {
+                    eventName = String(afterEvent).trimmingCharacters(in: .whitespaces)
+                }
+            }
+        }
         
-        // Add relevant parameters
+        var details = formatScreenName(eventName)
         var additionalInfo: [String] = []
         
-        // Special handling for specific events
-        if let viewName = entry.params["view_name"] {
-            additionalInfo.append("View: \(formatScreenName(viewName))")
+        // Special handling for different event types
+        
+        // Button events
+        if eventName.lowercased().contains("button") || eventName == "ui_button_tap" {
+            if let buttonName = entry.params["name"] ?? entry.params["button"] {
+                details = formatScreenName(buttonName)
+            }
+        }
+        // Toggle events  
+        else if eventName.lowercased().contains("toggle") {
+            if let newValue = entry.params["newValue"] ?? entry.params["value"] {
+                additionalInfo.append("→ \(newValue.capitalized)")
+            }
+        }
+        // Premium/subscription events
+        else if eventName.lowercased().contains("premium") || eventName.lowercased().contains("is_premium") {
+            if let newValue = entry.params["newValue"] ?? entry.params["value"] {
+                additionalInfo.append("→ \(newValue.capitalized)")
+            }
         }
         
-        if let fontFamily = entry.params["font_family"] {
-            additionalInfo.append("Font: \(fontFamily.capitalized)")
+        // Only add screen context if it's different from current screen
+        if let viewName = entry.params["view_name"],
+           let currentScreen = currentScreen,
+           formatScreenName(viewName).lowercased() != currentScreen.lowercased() {
+            additionalInfo.append("on \(formatScreenName(viewName))")
         }
         
-        if let fontSize = entry.params["font_size"] {
-            additionalInfo.append("Size: \(fontSize)")
-        }
+        // Add all other meaningful parameters
+        let commonKeys = ["name", "button", "view_name", "newValue", "value"]
+        let excludedKeys = Set(commonKeys + ["timeDelta"]) // Exclude timing info
         
-        if let textAlignment = entry.params["text_alignment"] {
-            additionalInfo.append("Alignment: \(textAlignment.capitalized)")
-        }
-        
-        if let option = entry.params["option"] {
-            additionalInfo.append("Option: \(formatScreenName(option))")
-        }
-        
-        if let selected = entry.params["selected"] {
-            additionalInfo.append("Selected: \(selected.capitalized)")
-        }
-        
-        if let buttonName = entry.params["button"] {
-            additionalInfo.append("Button: \(formatScreenName(buttonName))")
-        }
-        
-        if let actionParam = entry.params["action"] {
-            additionalInfo.append("Action: \(formatScreenName(actionParam))")
-        }
-        
-        if let fromMode = entry.params["from"], let toMode = entry.params["to"] {
-            additionalInfo.append("From: \(fromMode.capitalized)")
-            additionalInfo.append("To: \(toMode.capitalized)")
-        }
-        
-        if let refreshInterval = entry.params["refresh_interval"] {
-            additionalInfo.append("Interval: \(refreshInterval)s")
-        }
-        
-        if let toVersion = entry.params["to_version"], let toBuild = entry.params["to_build"] {
-            additionalInfo.append("Version: \(toVersion)")
-            additionalInfo.append("Build: \(toBuild)")
-        }
-        
-        if let placement = entry.params["placement"], let paywallName = entry.params["name"] {
-            additionalInfo.append("Paywall: \(paywallName)")
-            additionalInfo.append("Placement: \(placement.capitalized)")
-        }
-        
-        if let reason = entry.params["reason"] {
-            additionalInfo.append("Reason: \(formatScreenName(reason))")
-        }
-        
-        // Add other meaningful parameters (exclude common/irrelevant ones)
-        let excludedKeys = [
-            "view_name", "font_family", "font_size", "from", "to", "refresh_interval", 
-            "to_version", "to_build", "placement", "timeDelta", "text_alignment", 
-            "option", "selected", "button", "action", "reason", "name"
-        ]
-        
-        for (key, value) in entry.params {
+        for (key, value) in entry.params.sorted(by: { $0.key < $1.key }) {
             if !excludedKeys.contains(key) && !value.isEmpty && value != "nil" {
                 let formattedKey = formatScreenName(key)
                 let formattedValue = formatScreenName(value)
@@ -589,8 +670,9 @@ class PrettyLogParser {
             }
         }
         
+        // Join everything together
         if !additionalInfo.isEmpty {
-            details += "\n        " + additionalInfo.joined(separator: "\n        ")
+            details += " (" + additionalInfo.joined(separator: ", ") + ")"
         }
         
         return details
@@ -643,8 +725,18 @@ class ReportGenerator {
         let avgScreens = Double(totalScreens) / Double(sessions.count)
         
         let mins = Int(avgDuration) / 60
-        let secs = Int(avgDuration) % 60
-        let avgFormatted = mins > 0 ? "\(mins)m \(secs)s" : "\(secs)s"
+        let secs = avgDuration.truncatingRemainder(dividingBy: 60)
+        let avgFormatted: String
+        
+        if mins > 0 {
+            avgFormatted = "\(mins)m \(String(format: "%.1f", secs))s"
+        } else if avgDuration >= 10 {
+            avgFormatted = "\(String(format: "%.0f", avgDuration))s"
+        } else if avgDuration >= 1 {
+            avgFormatted = "\(String(format: "%.1f", avgDuration))s"
+        } else {
+            avgFormatted = "\(String(format: "%.2f", avgDuration))s"
+        }
         
         return """
         Avg Duration: \(avgFormatted)
@@ -697,23 +789,17 @@ class ReportGenerator {
                 for actionGroup in groupedActions {
                     if actionGroup.count == 1 {
                         let action = actionGroup[0]
-                        let lines = formatActionForMobile(action)
-                        for line in lines {
-                            report += "      \(line)\n"
-                        }
+                        report += "     \(action.actionType) \(action.details)\n"
                     } else {
                         // Group identical actions with count
-                        let uniqueActions = Dictionary(grouping: actionGroup) { $0.details.components(separatedBy: "\n")[0] }
+                        let uniqueActions = Dictionary(grouping: actionGroup) { $0.details }
                         
-                        for (mainDetail, actions) in uniqueActions.sorted(by: { $0.key < $1.key }) {
+                        for (detail, actions) in uniqueActions.sorted(by: { $0.key < $1.key }) {
                             let icon = actions.first?.actionType ?? "•"
                             if actions.count > 1 {
-                                report += "      \(icon) \(mainDetail) ×\(actions.count)\n"
+                                report += "     \(icon) \(detail) ×\(actions.count)\n"
                             } else {
-                                let lines = formatActionForMobile(actions[0])
-                                for line in lines {
-                                    report += "      \(line)\n"
-                                }
+                                report += "     \(icon) \(detail)\n"
                             }
                         }
                     }
@@ -730,24 +816,6 @@ class ReportGenerator {
         }
         
         return report
-    }
-    
-    private func formatActionForMobile(_ action: UserAction) -> [String] {
-        let parts = action.details.components(separatedBy: "\n        ")
-        var lines: [String] = []
-        
-        // First line with icon
-        lines.append("\(action.actionType) \(parts[0])")
-        
-        // Additional details on separate lines
-        for i in 1..<parts.count {
-            let detail = parts[i].trimmingCharacters(in: .whitespaces)
-            if !detail.isEmpty {
-                lines.append("        \(detail)")
-            }
-        }
-        
-        return lines
     }
     
     private func groupActionsPreservingDetails(_ actions: [UserAction]) -> [[UserAction]] {

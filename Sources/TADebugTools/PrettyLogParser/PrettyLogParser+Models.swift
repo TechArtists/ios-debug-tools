@@ -27,12 +27,17 @@ struct ScreenVisit {
     }
     
     var durationFormatted: String {
-        let mins = Int(duration) / 60
-        let secs = Int(duration) % 60
+        let totalSeconds = duration
+        let mins = Int(totalSeconds) / 60
+        let secs = totalSeconds.truncatingRemainder(dividingBy: 60)
+        
         if mins > 0 {
-            return "\(mins)m \(secs)s"
+            return "\(mins)m \(String(format: "%.1f", secs))s"
+        } else if totalSeconds >= 1 {
+            return "\(String(format: "%.1f", totalSeconds))s"
+        } else {
+            return "\(String(format: "%.2f", totalSeconds))s"
         }
-        return "\(secs)s"
     }
 }
 
@@ -57,11 +62,18 @@ struct Session {
     }
     
     var durationFormatted: String {
-        let mins = Int(duration) / 60
-        let secs = Int(duration) % 60
+        let totalSeconds = duration
+        let mins = Int(totalSeconds) / 60
+        let secs = totalSeconds.truncatingRemainder(dividingBy: 60)
+        
         if mins > 0 {
-            return "\(mins)m \(secs)s"
+            return "\(mins)m \(String(format: "%.1f", secs))s"
+        } else if totalSeconds >= 10 {
+            return "\(String(format: "%.0f", totalSeconds))s"
+        } else if totalSeconds >= 1 {
+            return "\(String(format: "%.1f", totalSeconds))s"
+        } else {
+            return "\(String(format: "%.2f", totalSeconds))s"
         }
-        return "\(secs)s"
     }
 }

@@ -23,7 +23,6 @@ public struct TAPrettyLogViewer: View {
     @State private var isGeneratingReport: Bool = false
     @State private var showError: Bool = false
     @State private var errorMessage: String = ""
-    @State private var wrapLines: Bool = true
 
     // MARK: Init
     /// Display from a file URL
@@ -64,7 +63,6 @@ public struct TAPrettyLogViewer: View {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     if !contents.isEmpty {
                         copyButton
-                        wrapToggle  
                         ShareLink(item: contentsData(), preview: .init("analytics_report.txt"))
                     }
                 }
@@ -96,36 +94,18 @@ public struct TAPrettyLogViewer: View {
     }
 
     private var viewer: some View {
-        // Two modes: wrapped (single vertical scroll) vs unwrapped (both axes)
-        Group {
-            if wrapLines {
-                ScrollView {
-                    Text(contents)
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.background.opacity(0.6))
-                                .shadow(radius: 6, y: 2)
-                        )
-                        .padding()
-                }
-            } else {
-                ScrollView([.vertical, .horizontal]) {
-                    Text(verbatim: contents) // verbatim to preserve spacing when not wrapping
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.background.opacity(0.6))
-                                .shadow(radius: 6, y: 2)
-                        )
-                        .padding()
-                }
-            }
+        ScrollView {
+            Text(contents)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.background.opacity(0.6))
+                        .shadow(radius: 6, y: 2)
+                )
+                .padding()
         }
         .background(Color(.systemGroupedBackground))
     }
@@ -144,14 +124,6 @@ public struct TAPrettyLogViewer: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
-    }
-
-    private var wrapToggle: some View {
-        Toggle(isOn: $wrapLines) {
-            Image(systemName: wrapLines ? "line.3.horizontal.decrease" : "arrow.left.and.right.square")
-        }
-        .toggleStyle(.button)
-        .help(wrapLines ? "Disable line wrap" : "Enable line wrap")
     }
 
     private var copyButton: some View {
@@ -179,9 +151,7 @@ public struct TAPrettyLogViewer: View {
             defer { isGeneratingReport = false }
             
             // Generate report on background queue to avoid blocking UI
-            let report = await Task.detached(priority: .userInitiated) {
-                generateReport(from: initialText)
-            }.value
+            let report = await generateReportAsync(from: initialText)
             
             contents = report
             return
@@ -198,9 +168,7 @@ public struct TAPrettyLogViewer: View {
                 isGeneratingReport = true
                 
                 // Generate report on background queue to avoid blocking UI
-                let report = await Task.detached(priority: .userInitiated) {
-                    generateReport(from: str)
-                }.value
+                let report = await generateReportAsync(from: str)
                 
                 isGeneratingReport = false
                 contents = report
@@ -215,8 +183,16 @@ public struct TAPrettyLogViewer: View {
 
     // MARK: Helpers
 
-    /// Build the human-readable analytics report from raw log text
-    private func generateReport(from rawText: String) -> String {
+    /// Build the human-readable analytics report from raw log text - runs off main actor
+    private func generateReportAsync(from rawText: String) async -> String {
+        return await Task.detached(priority: .userInitiated) {
+            Self.generateReport(from: rawText)
+        }.value
+    }
+    
+    /// Static method to generate report - not tied to main actor
+    nonisolated
+    private static func generateReport(from rawText: String) -> String {
         let parser = PrettyLogParser()
         let sessions = parser.parse(rawText)
         let generator = ReportGenerator()
@@ -295,33 +271,12 @@ private struct SharePreviewItem: Transferable {
 struct TAPrettyLogViewer_Previews: PreviewProvider {
     static var sampleLog: String {
         """
-        2025-10-24T14:45:37+0300 info [EasyStickyNotes.main] : [EasyStickyNotes] App launch completed successfully
-        2025-10-24T14:45:37+0300 info [EasyStickyNotes.main] : launchCount=1 [EasyStickyNotes] App launched
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: onboarding_enter, params: timeDelta:4.086461901664734
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:WELCOMESCREEN, timeDelta:4.0837050676345825
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:CONTINUE, timeDelta:3.276497006416321, view_name:WELCOMESCREEN
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:TESTIMONIALS, timeDelta:3.2487510442733765
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:CONTINUE, timeDelta:1.3085170984268188, view_name:TESTIMONIALS
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:ONBOARDING_PREMIUM, timeDelta:1.2831809520721436
-        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: paywall_show, params: name:Paywall #1, placement:onboarding, timeDelta:0.31248998641967773
-        2025-10-24T14:45:44+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:DASHBOARD
-        2025-10-24T14:45:45+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:CREATE_NOTE, view_name:DASHBOARD
-        2025-10-24T14:45:45+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:CREATE_NOTE
-        2025-10-24T14:46:03+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:BACKGROUND_COLOR_CHANGED, view_name:EDIT_NOTE
-        2025-10-24T14:46:07+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: FONT_FAMILY_CHANGED, params: font_family:markerFelt
-        2025-10-24T14:46:10+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: FONT_SIZE_CHANGED, params: font_size:16
-        2025-10-24T14:46:17+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:SAVE_NOTE, view_name:CREATE_NOTE
-        2025-10-24T14:46:18+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: NOTE_OPENED, params: nil
-        2025-10-24T14:46:18+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:EDIT_NOTE
-        2025-10-24T14:46:23+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: app_close, params: view_name:EDIT_NOTE
-        -- ** ** ** --
-        2025-10-24T14:46:24+0300 info [EasyStickyNotes.main] : [EasyStickyNotes] App launch completed successfully
-        2025-10-24T14:46:24+0300 info [EasyStickyNotes.main] : launchCount=2 [EasyStickyNotes] App launched
-        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:DASHBOARD, timeDelta:4.228966951370239
-        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: NOTE_OPENED, params: timeDelta:3.4334700107574463
-        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:EDIT_NOTE, timeDelta:3.3983709812164307
-        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: NOTE_MODE_CHANGED, params: from:plainText, timeDelta:1.678725004196167, to:affirmation
-        2025-10-24T14:46:32+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:MULTIPLE_AFFIRMATIONS_ADDED, view_name:EDIT_NOTE
-        2025-10-24T14:46:36+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: AFFIRMATION_REFRESH_INTERVAL_CHANGED, params: refresh_interval:4
-        2025-10-24T14:46:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:NOTE_UPDATED, view_name:EDIT_NOTE
-        2025-10-24T14:46:43+0300 info [EasyStickyNotes.analytics] : [
+        ///
+        """
+    }
+
+    static var previews: some View {
+        TAPrettyLogViewer(text: sampleLog, title: "Improved Analytics Report")
+    }
+}
+#endif
