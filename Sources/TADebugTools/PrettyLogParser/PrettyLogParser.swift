@@ -16,8 +16,15 @@ struct EventConfig {
     // Keywords that indicate screen views
     let screenViewKeywords = ["ui_view_show", "screen_view", "view_show", "page_view", "screen_displayed"]
     
-    // Keywords that indicate user actions
-    let actionKeywords = ["ui_button_tap", "button_tap", "BUTTON_TAPPED", "click", "tap", "action", "event", "NOTE_OPENED", "FONT_FAMILY_CHANGED", "FONT_SIZE_CHANGED", "BACKGROUND_COLOR_CHANGED", "NOTE_MODE_CHANGED", "AFFIRMATION_REFRESH_INTERVAL_CHANGED"]
+    // Keywords that indicate user actions - expanded list
+    let actionKeywords = [
+        "ui_button_tap", "button_tap", "BUTTON_TAPPED", "click", "tap", "action", "event",
+        "NOTE_OPENED", "FONT_FAMILY_CHANGED", "FONT_SIZE_CHANGED", "BACKGROUND_COLOR_CHANGED", 
+        "NOTE_MODE_CHANGED", "AFFIRMATION_REFRESH_INTERVAL_CHANGED", "TEXT_ALIGNMENT_CHANGED",
+        "SETTING_SORTING_OPTION_CHANGED", "NOTE_SELECTED_IN_MODE", "onboarding_enter",
+        "app_version_update", "paywall_show", "paywall_exit", "NOTE_UPDATED", "SAVE_NOTE", 
+        "CREATE_NOTE"
+    ]
     
     // Keywords that indicate session end
     let sessionEndKeywords = ["app_close", "session_end", "app_background"]
@@ -27,6 +34,9 @@ struct EventConfig {
     
     // Common parameter names for action identification
     let actionParamNames = ["name", "action", "event", "button", "type"]
+    
+    // Minimum duration for screens (in seconds) to avoid 0s displays
+    let minimumScreenDuration: TimeInterval = 0.1
 }
 
 // MARK: - Parser
@@ -200,7 +210,25 @@ class PrettyLogParser {
     private func finalizeCurrentSession() {
         if let idx = currentSessionIndex {
             if sessions[idx].endTime == nil {
-                sessions[idx].endTime = sessions[idx].screens.last?.exitTime ?? sessions[idx].startTime
+                let lastScreenTime = sessions[idx].screens.last?.exitTime ?? sessions[idx].screens.last?.entryTime
+                sessions[idx].endTime = lastScreenTime ?? sessions[idx].startTime
+            }
+            
+            // Ensure all screens have proper exit times and minimum durations
+            for screenIdx in 0..<sessions[idx].screens.count {
+                if sessions[idx].screens[screenIdx].exitTime == nil {
+                    let entryTime = sessions[idx].screens[screenIdx].entryTime
+                    let nextScreenTime = screenIdx < sessions[idx].screens.count - 1 
+                        ? sessions[idx].screens[screenIdx + 1].entryTime
+                        : sessions[idx].endTime ?? entryTime.addingTimeInterval(config.minimumScreenDuration)
+                    
+                    let duration = nextScreenTime.timeIntervalSince(entryTime)
+                    let actualExitTime = duration < config.minimumScreenDuration 
+                        ? entryTime.addingTimeInterval(config.minimumScreenDuration)
+                        : nextScreenTime
+                    
+                    sessions[idx].screens[screenIdx].exitTime = actualExitTime
+                }
             }
         }
         currentSessionIndex = nil
@@ -292,16 +320,27 @@ class PrettyLogParser {
     private func addScreenVisit(sessionIndex: Int, screenName: String, timestamp: Date) {
         let formattedName = formatScreenName(screenName)
         
-        // Don't add duplicate consecutive screens
+        // Don't add duplicate consecutive screens with very short intervals
         if let lastScreen = sessions[sessionIndex].screens.last,
            lastScreen.screenName == formattedName {
-            return
+            let timeSinceLastScreen = timestamp.timeIntervalSince(lastScreen.entryTime)
+            if timeSinceLastScreen < 1.0 { // Less than 1 second, likely duplicate
+                return
+            }
         }
         
-        // Close previous screen with proper timing
+        // Close previous screen with proper timing and minimum duration
         if !sessions[sessionIndex].screens.isEmpty {
             let lastIdx = sessions[sessionIndex].screens.count - 1
-            sessions[sessionIndex].screens[lastIdx].exitTime = timestamp
+            let lastScreen = sessions[sessionIndex].screens[lastIdx]
+            let duration = timestamp.timeIntervalSince(lastScreen.entryTime)
+            
+            // Ensure minimum duration
+            let actualExitTime = duration < config.minimumScreenDuration 
+                ? lastScreen.entryTime.addingTimeInterval(config.minimumScreenDuration)
+                : timestamp
+            
+            sessions[sessionIndex].screens[lastIdx].exitTime = actualExitTime
         }
         
         // Add new screen
@@ -335,20 +374,35 @@ class PrettyLogParser {
                 let afterEvent = message[start.upperBound...]
                 if let comma = afterEvent.firstIndex(of: ",") {
                     return String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
+                } else {
+                    return String(afterEvent).trimmingCharacters(in: .whitespaces)
                 }
             }
         }
         
-        // Extract from direct event mentions
+        // Extract from direct event mentions - expanded list
         let events = [
             "NOTE_OPENED", "NOTE_MODE_CHANGED", "FONT_FAMILY_CHANGED", 
             "FONT_SIZE_CHANGED", "BACKGROUND_COLOR_CHANGED", "AFFIRMATION_REFRESH_INTERVAL_CHANGED",
-            "ui_button_tap", "paywall_show", "paywall_exit", "NOTE_UPDATED"
+            "TEXT_ALIGNMENT_CHANGED", "SETTING_SORTING_OPTION_CHANGED", "NOTE_SELECTED_IN_MODE",
+            "ui_button_tap", "paywall_show", "paywall_exit", "NOTE_UPDATED", "BUTTON_TAPPED",
+            "onboarding_enter", "app_version_update"
         ]
         
         for event in events {
             if message.contains(event) {
                 return event
+            }
+        }
+        
+        // Check for logged event patterns
+        if message.contains("has logged event:") {
+            let pattern = #"has logged event: '([^']+)'"#
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: message, range: NSRange(message.startIndex..., in: message)) {
+                if let range = Range(match.range(at: 1), in: message) {
+                    return String(message[range])
+                }
             }
         }
         
@@ -358,9 +412,11 @@ class PrettyLogParser {
     private func categorizeAction(_ entry: LogEntry) -> String {
         let msg = entry.message.lowercased()
         
-        if msg.contains("note_opened") {
+        if msg.contains("note_opened") || msg.contains("note_selected") {
             return "👁️"
-        } else if msg.contains("note_mode_changed") || msg.contains("font_family_changed") || msg.contains("font_size_changed") || msg.contains("background_color_changed") {
+        } else if msg.contains("note_mode_changed") || msg.contains("font_family_changed") || 
+                 msg.contains("font_size_changed") || msg.contains("background_color_changed") ||
+                 msg.contains("text_alignment_changed") {
             return "🎨"
         } else if msg.contains("affirmation") {
             return "✨"
@@ -374,10 +430,16 @@ class PrettyLogParser {
             return "🗑️"
         } else if msg.contains("tap") || msg.contains("button") {
             return "👆"
-        } else if msg.contains("settings") {
+        } else if msg.contains("settings") || msg.contains("setting_") {
             return "⚙️"
         } else if msg.contains("share") {
             return "📤"
+        } else if msg.contains("onboarding") {
+            return "🚀"
+        } else if msg.contains("version") || msg.contains("update") {
+            return "🔄"
+        } else if msg.contains("selection_mode") {
+            return "☑️"
         } else {
             return "💾"
         }
@@ -402,6 +464,26 @@ class PrettyLogParser {
             additionalInfo.append("Size: \(fontSize)")
         }
         
+        if let textAlignment = entry.params["text_alignment"] {
+            additionalInfo.append("Alignment: \(textAlignment.capitalized)")
+        }
+        
+        if let option = entry.params["option"] {
+            additionalInfo.append("Option: \(formatScreenName(option))")
+        }
+        
+        if let selected = entry.params["selected"] {
+            additionalInfo.append("Selected: \(selected.capitalized)")
+        }
+        
+        if let buttonName = entry.params["button"] {
+            additionalInfo.append("Button: \(formatScreenName(buttonName))")
+        }
+        
+        if let actionParam = entry.params["action"] {
+            additionalInfo.append("Action: \(formatScreenName(actionParam))")
+        }
+        
         if let fromMode = entry.params["from"], let toMode = entry.params["to"] {
             additionalInfo.append("From: \(fromMode.capitalized)")
             additionalInfo.append("To: \(toMode.capitalized)")
@@ -421,15 +503,19 @@ class PrettyLogParser {
             additionalInfo.append("Placement: \(placement.capitalized)")
         }
         
-        // Add other meaningful parameters
+        if let reason = entry.params["reason"] {
+            additionalInfo.append("Reason: \(formatScreenName(reason))")
+        }
+        
+        // Add other meaningful parameters (exclude common/irrelevant ones)
+        let excludedKeys = [
+            "view_name", "font_family", "font_size", "from", "to", "refresh_interval", 
+            "to_version", "to_build", "placement", "timeDelta", "text_alignment", 
+            "option", "selected", "button", "action", "reason", "name"
+        ]
+        
         for (key, value) in entry.params {
-            if config.actionParamNames.contains(key) || 
-               ["view_name", "font_family", "font_size", "from", "to", "refresh_interval", "to_version", "to_build", "placement"].contains(key) ||
-               key == "timeDelta" {
-                continue
-            }
-            
-            if !value.isEmpty && value != "nil" {
+            if !excludedKeys.contains(key) && !value.isEmpty && value != "nil" {
                 let formattedKey = formatScreenName(key)
                 let formattedValue = formatScreenName(value)
                 additionalInfo.append("\(formattedKey): \(formattedValue)")

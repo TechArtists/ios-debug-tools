@@ -20,6 +20,7 @@ public struct TAPrettyLogViewer: View {
     // MARK: State
     @State private var contents: String = ""
     @State private var isLoading: Bool = false
+    @State private var isGeneratingReport: Bool = false
     @State private var showError: Bool = false
     @State private var errorMessage: String = ""
     @State private var wrapLines: Bool = true
@@ -37,37 +38,66 @@ public struct TAPrettyLogViewer: View {
         self.fileURL = nil
         self.initialText = text
         self.title = title
-        self._contents = State(initialValue: generateReport(from: text))
+        // Don't generate report immediately in init - do it in task
     }
 
     public var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Loading…")
-                    .padding()
-            } else if contents.isEmpty {
-                emptyState
-            } else {
-                viewer
+        NavigationView {
+            Group {
+                if isLoading || isGeneratingReport {
+                    loadingView
+                } else if contents.isEmpty {
+                    emptyState
+                } else {
+                    viewer
+                }
             }
-        }
-        .navigationTitle(title)
-        .task { await loadIfNeeded() }
-        .alert("Couldn't Open File", isPresented: $showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                wrapToggle
-                ShareLink(item: contentsData(), preview: .init("analytics_report.txt"))
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .task { await loadIfNeeded() }
+            .alert("Couldn't Open File", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
             }
-            ToolbarItem(placement: .topBarLeading) { copyButton }
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if !contents.isEmpty {
+                        wrapToggle
+                        ShareLink(item: contentsData(), preview: .init("analytics_report.txt"))
+                    }
+                }
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    if !contents.isEmpty {
+                        copyButton
+                    }
+                }
+            }
         }
     }
 
     // MARK: Subviews
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.2)
+            
+            Text(isGeneratingReport ? "Generating Report..." : "Loading...")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            
+            if isGeneratingReport {
+                Text("Parsing log entries and building analytics")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
+    }
 
     private var viewer: some View {
         // Two modes: wrapped (single vertical scroll) vs unwrapped (both axes)
@@ -116,7 +146,8 @@ public struct TAPrettyLogViewer: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
     }
 
     private var wrapToggle: some View {
@@ -146,6 +177,21 @@ public struct TAPrettyLogViewer: View {
 
     @MainActor
     private func loadIfNeeded() async {
+        // Handle initial text case
+        if let initialText = initialText, contents.isEmpty {
+            isGeneratingReport = true
+            defer { isGeneratingReport = false }
+            
+            // Generate report on background queue to avoid blocking UI
+            let report = await Task.detached(priority: .userInitiated) {
+                generateReport(from: initialText)
+            }.value
+            
+            contents = report
+            return
+        }
+        
+        // Handle file URL case
         guard contents.isEmpty, let fileURL else { return }
         isLoading = true
         defer { isLoading = false }
@@ -153,7 +199,15 @@ public struct TAPrettyLogViewer: View {
         do {
             let data = try Data(contentsOf: fileURL)
             if let str = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .utf16) {
-                contents = generateReport(from: str)
+                isGeneratingReport = true
+                
+                // Generate report on background queue to avoid blocking UI
+                let report = await Task.detached(priority: .userInitiated) {
+                    generateReport(from: str)
+                }.value
+                
+                isGeneratingReport = false
+                contents = report
             } else {
                 throw NSError(domain: "TAPrettyLogViewer", code: -2, userInfo: [NSLocalizedDescriptionKey: "Unsupported text encoding."])
             }
