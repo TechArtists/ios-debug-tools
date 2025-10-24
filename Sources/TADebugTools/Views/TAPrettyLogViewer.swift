@@ -53,7 +53,7 @@ public struct TAPrettyLogViewer: View {
         }
         .navigationTitle(title)
         .task { await loadIfNeeded() }
-        .alert("Couldn’t Open File", isPresented: $showError) {
+        .alert("Couldn't Open File", isPresented: $showError) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage)
@@ -198,46 +198,45 @@ private struct SharePreviewItem: Transferable {
 
 #if DEBUG
 struct TAPrettyLogViewer_Previews: PreviewProvider {
-    static var sample: String {
+    static var sampleLog: String {
         """
-        ╔════════════════════════════════════════════════════════════════════╗
-        ║                    USER SESSION ANALYTICS REPORT                    ║
-        ╚════════════════════════════════════════════════════════════════════╝
-
-        Total Sessions: 2
-        Average Session Duration: 2m 14s
-        Average Screens per Session: 3.5
-
-        ┌────────────────────────────────────────────────────────────────────┐
-        │ SESSION #1
-        │ Started: 12:04:33
-        │ Duration: 1m 03s
-        │ App_Version: 1.4.0
-        │ Device: iPhone16,1
-        └────────────────────────────────────────────────────────────────────┘
-
-        📱 User Journey:
-
-          1. Home
-             ⏱  Time spent: 24s
-             📍 Actions (2):
-                👆 Play Button (Mode: Classic)
-                💳 Subscribe (Placement: Paywall A)
-
-          2. Game Screen
-             ⏱  Time spent: 39s
-             📍 Actions (3):
-                👆 Start ×2
-                ❌ Pause
-                📤 Share (Channel: Messages)
-
-        ────────────────────────────────────────────────────────────────────────
+        2025-10-24T14:45:37+0300 info [EasyStickyNotes.main] : [EasyStickyNotes] App launch completed successfully
+        2025-10-24T14:45:37+0300 info [EasyStickyNotes.main] : launchCount=1 [EasyStickyNotes] App launched
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: onboarding_enter, params: timeDelta:4.086461901664734
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:WELCOMESCREEN, timeDelta:4.0837050676345825
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:CONTINUE, timeDelta:3.276497006416321, view_name:WELCOMESCREEN
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:TESTIMONIALS, timeDelta:3.2487510442733765
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:CONTINUE, timeDelta:1.3085170984268188, view_name:TESTIMONIALS
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:ONBOARDING_PREMIUM, timeDelta:1.2831809520721436
+        2025-10-24T14:45:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: paywall_show, params: name:Paywall #1, placement:onboarding, timeDelta:0.31248998641967773
+        2025-10-24T14:45:44+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:DASHBOARD
+        2025-10-24T14:45:45+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:CREATE_NOTE, view_name:DASHBOARD
+        2025-10-24T14:45:45+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:CREATE_NOTE
+        2025-10-24T14:46:03+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:BACKGROUND_COLOR_CHANGED, view_name:EDIT_NOTE
+        2025-10-24T14:46:07+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: FONT_FAMILY_CHANGED, params: font_family:markerFelt
+        2025-10-24T14:46:10+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: FONT_SIZE_CHANGED, params: font_size:16
+        2025-10-24T14:46:17+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:SAVE_NOTE, view_name:CREATE_NOTE
+        2025-10-24T14:46:18+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: NOTE_OPENED, params: nil
+        2025-10-24T14:46:18+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:EDIT_NOTE
+        2025-10-24T14:46:23+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: app_close, params: view_name:EDIT_NOTE
+        -- ** ** ** --
+        2025-10-24T14:46:24+0300 info [EasyStickyNotes.main] : [EasyStickyNotes] App launch completed successfully
+        2025-10-24T14:46:24+0300 info [EasyStickyNotes.main] : launchCount=2 [EasyStickyNotes] App launched
+        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:DASHBOARD, timeDelta:4.228966951370239
+        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: NOTE_OPENED, params: timeDelta:3.4334700107574463
+        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:EDIT_NOTE, timeDelta:3.3983709812164307
+        2025-10-24T14:46:28+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: NOTE_MODE_CHANGED, params: from:plainText, timeDelta:1.678725004196167, to:affirmation
+        2025-10-24T14:46:32+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:MULTIPLE_AFFIRMATIONS_ADDED, view_name:EDIT_NOTE
+        2025-10-24T14:46:36+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: AFFIRMATION_REFRESH_INTERVAL_CHANGED, params: refresh_interval:4
+        2025-10-24T14:46:41+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_button_tap, params: name:NOTE_UPDATED, view_name:EDIT_NOTE
+        2025-10-24T14:46:43+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: ui_view_show, params: name:SETTINGS
+        2025-10-24T14:46:48+0300 info [EasyStickyNotes.analytics] : [EasyStickyNotes] sendEvent: BUTTON_TAPPED, params: button:debug_tool_access
         """
     }
 
     static var previews: some View {
         NavigationStack {
-            TAPrettyLogViewer(text: sample)
+            TAPrettyLogViewer(text: sampleLog, title: "Improved Analytics Report")
         }
     }
 }
