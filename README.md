@@ -6,13 +6,12 @@
 
 ## Features
 
-- 🔐 **Flexible Password Protection**: Multiple authentication strategies for different environments
-- 🧩 **Custom Debug Entries**: Easily add toggles, buttons, text fields, constants, and more
-- 🗂️ **Sectioned UI**: Organize your debugging entries by category
-- 🧪 **Property Wrapper Support**: Quickly bind debug state to your app's logic
-- 🔄 **Bidirectional State Sync**: Keep debug entries in sync with your app's state
-- 📊 **Advanced Logging**: Built-in log viewers, file sharing, and management
-- 🎯 **Production-Ready**: Environment-specific configurations and hidden access patterns
+- 🔐 **Flexible Password Protection**: Multiple authentication strategies for different environments  
+- 🧩 **Custom Debug Entries**: Easily add toggles, buttons, text fields, constants, and more  
+- 🗂️ **Sectioned UI**: Organize your debugging entries by category  
+- 🧪 **Property Wrapper Support**: Quickly bind debug state to your app's logic  
+- 🔄 **Bidirectional State Sync**: Keep debug entries in sync with your app's state  
+- 🎯 **Production-Ready**: Environment-specific configurations and hidden access patterns  
 
 ---
 
@@ -22,7 +21,7 @@
 
 To include **TADebugTools** in your project, add it to your `Package.swift` file:
 
-\`\`\`swift
+```swift
 let package = Package(
     name: "YourProject",
     platforms: [
@@ -43,13 +42,13 @@ let package = Package(
         )
     ]
 )
-\`\`\`
+```
 
 Or add it via Xcode:
 
-- Go to **File > Add Packages**.
-- Enter the repo URL: `git@github.com:YourRepo/TADebugTools.git`.
-- Add it to your target.
+1. Go to **File > Add Packages**
+2. Enter the repo URL: `git@github.com:YourRepo/TADebugTools.git`
+3. Add it to your target
 
 ---
 
@@ -57,11 +56,11 @@ Or add it via Xcode:
 
 ### 1. Create a Custom Configuration
 
-You can either **sync entries with external source of truth** (like `@AppStorage`) or **manage the source of truth from the configuration itself**.
+You can either **sync entries with an external source of truth** (like `@AppStorage`) or **manage the source of truth from the configuration itself**.
 
 #### Option A: External Source of Truth
 
-\`\`\`swift
+```swift
 import SwiftUI
 import TADebugTools
 
@@ -77,9 +76,9 @@ public class MyDebugToolConfiguration: TADebugToolConfiguration {
         addEntriesToSections()
     }
 }
-\`\`\`
+```
 
-\`\`\`swift
+```swift
 struct PaywallWithDebugEntryView: View {
     @EnvironmentObject var debugToolConfiguration: MyDebugToolConfiguration
     @AppStorage("isPremium") var isPremium: Bool = UserDefaults.standard.bool(forKey: "isPremium")
@@ -101,11 +100,11 @@ struct PaywallWithDebugEntryView: View {
         .padding()
     }
 }
-\`\`\`
+```
 
 #### Option B: Configuration is the Source of Truth
 
-\`\`\`swift
+```swift
 import SwiftUI
 import TADebugTools
 
@@ -140,9 +139,9 @@ public class MyDebugToolConfiguration2: TADebugToolConfiguration {
     var environment: ServiceEnvironment = .staging
 
 }
-\`\`\`
+```
 
-\`\`\`swift
+```swift
 struct PaywalSingleSourceTruth: View {
     @StateObject var debugToolConfiguration: MyDebugToolConfiguration2 = .init()
     @State var presentDevToolView: Bool = false
@@ -163,11 +162,11 @@ struct PaywalSingleSourceTruth: View {
         .padding()
     }
 }
-\`\`\`
+```
 
 ### 2. Present the Debug UI
 
-\`\`\`swift
+```swift
 import SwiftUI
 
 struct PresentDebugView: View {
@@ -183,7 +182,7 @@ struct PresentDebugView: View {
         }
     }
 }
-\`\`\`
+```
 
 ---
 
@@ -193,7 +192,7 @@ struct PresentDebugView: View {
 
 For production applications, you'll want a more sophisticated setup that handles different environments, secure access, and comprehensive debugging features:
 
-\`\`\`swift
+```swift
 import SwiftUI
 import TADebugTools
 import Defaults // Using Defaults library for type-safe UserDefaults
@@ -222,7 +221,6 @@ public class AppDebugToolConfiguration: TADebugToolConfiguration {
         wrappedValue: Defaults[.onboardingCompleted]
     )
 
-    
     public override init(passwordType: TADebugToolConfiguration.PasswordType) {
         super.init(passwordType: passwordType)
         
@@ -264,13 +262,13 @@ public class AppDebugToolConfiguration: TADebugToolConfiguration {
         }
     }
 }
-\`\`\`
+```
 
 ### App Integration Pattern
 
 #### 1. Initialize in AppDelegate
 
-\`\`\`swift
+```swift
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
     
@@ -294,11 +292,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         debugConfig.addOnboardingEntries()
     }
 }
-\`\`\`
+```
 
 #### 2. Dependency Injection Pattern
 
-\`\`\`swift
+```swift
 final class SettingsViewController: UIViewController {
     private let debugConfig: AppDebugToolConfiguration
     
@@ -307,9 +305,11 @@ final class SettingsViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
     
-    // ... rest of implementation ...
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 }
-\`\`\`
+```
 
 ---
 
@@ -319,7 +319,7 @@ final class SettingsViewController: UIViewController {
 
 TADebugTools provides several password strategies for different security needs:
 
-\`\`\`swift
+```swift
 // No password required (development)
 .none
 
@@ -328,13 +328,13 @@ TADebugTools provides several password strategies for different security needs:
 
 // Dynamic password using custom strategy
 .dynamic(strategy: MyCustomPasswordStrategy())
-\`\`\`
+```
 
 ### Custom Password Strategies
 
 Create custom password strategies for advanced security:
 
-\`\`\`swift
+```swift
 import TADebugTools
 import UIKit
 
@@ -348,7 +348,9 @@ struct AlwaysTruePasswordStrategy: PasswordStrategy {
         return .numberPad
     }
 }
-\`\`\`
+```
+
+---
 
 ## State Management & Synchronization
 
@@ -356,7 +358,7 @@ struct AlwaysTruePasswordStrategy: PasswordStrategy {
 
 For apps with existing state management systems, TADebugTools provides seamless synchronization:
 
-\`\`\`swift
+```swift
 isPremiumEntry.onUpdateFromDebugTool = { newValue in
     Defaults[.isPremium] = newValue
 }
@@ -368,14 +370,14 @@ Task {
         }
     }
 }
-\`\`\`
+```
 
 ### State Management Patterns
 
 #### Pattern 1: External Source of Truth
 Best for apps with established state management systems.
 
-\`\`\`swift
+```swift
 // Debug tool syncs with your existing state system
 let premiumEntry: DebugEntryBool = .init(
     title: "Is Premium",
@@ -390,12 +392,12 @@ premiumEntry.onUpdateFromDebugTool = { newValue in
 MyStateManager.shared.onPremiumChanged = { newValue in
     premiumEntry.onUpdateFromApp(newValue)
 }
-\`\`\`
+```
 
 #### Pattern 2: Debug Tool as Source of Truth
 Best for simple debugging scenarios.
 
-\`\`\`swift
+```swift
 @Debuggable(key: "isPremium")
 var isPremium = false
 
@@ -403,7 +405,7 @@ var isPremium = false
 Toggle(isOn: debugConfig.$isPremium) {
     Text("Premium Status")
 }
-\`\`\`
+```
 
 ---
 
@@ -411,12 +413,12 @@ Toggle(isOn: debugConfig.$isPremium) {
 
 Organize your debug entries using these predefined sections:
 
-- `.app`: General app controls and state
-- `.appSettings`: System-level app settings
-- `.onboarding`: Onboarding-specific controls
-- `.logs`: Logs and debugging output
-- `.defaults`: UserDefaults display and manipulation
-- `.others`: Miscellaneous tools and entries
+- `.app`: General app controls and state  
+- `.appSettings`: System-level app settings  
+- `.onboarding`: Onboarding-specific controls  
+- `.logs`: Logs and debugging output  
+- `.defaults`: UserDefaults display and manipulation  
+- `.others`: Miscellaneous tools and entries  
 
 ---
 
@@ -424,16 +426,16 @@ Organize your debug entries using these predefined sections:
 
 ### Available Entry Types
 
-- **DebugEntryBool**: Toggle switches for boolean values
-- **DebugEntryButton**: Action buttons that execute code
-- **DebugEntryConstant**: Read-only display of values
-- **DebugEntryTextField**: Text input fields
-- **DebugEntryTextFieldAlertButton**: Buttons that show text input dialogs
-- **DebugEntryOptions**: Dropdown selection for enum values
+- **DebugEntryBool**: Toggle switches for boolean values  
+- **DebugEntryButton**: Action buttons that execute code  
+- **DebugEntryConstant**: Read-only display of values  
+- **DebugEntryTextField**: Text input fields  
+- **DebugEntryTextFieldAlertButton**: Buttons that show text input dialogs  
+- **DebugEntryOptions**: Dropdown selection for enum values  
 
 ### Custom Entry Creation
 
-\`\`\`swift
+```swift
 // Boolean toggle with custom behavior
 let customToggle = DebugEntryBool(
     title: "Custom Feature",
@@ -451,7 +453,7 @@ let navigationButton = DebugEntryButton(
         AnyView(AdvancedDebugSettingsView()) 
     }
 )
-\`\`\`
+```
 
 ---
 
@@ -459,24 +461,24 @@ let navigationButton = DebugEntryButton(
 
 ### Security Considerations
 
-1. **Use environment-specific password strategies** to ensure production security
-2. **Hide debug access behind subtle UI patterns** (tap counters, gestures)
-3. **Disable debug tools in production builds** when not needed
-4. **Use secure password strategies** that change over time
+1. **Use environment-specific password strategies** to ensure production security  
+2. **Hide debug access behind subtle UI patterns** (tap counters, gestures)  
+3. **Disable debug tools in production builds** when not needed  
+4. **Use secure password strategies** that change over time  
 
 ### Performance
 
-1. **Initialize debug configuration early** in app lifecycle
-2. **Use lazy initialization** for expensive debug entries
-3. **Avoid heavy operations** in debug entry callbacks
-4. **Clean up resources** when debug tools are dismissed
+1. **Initialize debug configuration early** in app lifecycle  
+2. **Use lazy initialization** for expensive debug entries  
+3. **Avoid heavy operations** in debug entry callbacks  
+4. **Clean up resources** when debug tools are dismissed  
 
 ### User Experience
 
-1. **Organize entries logically** using sections
-2. **Use clear, descriptive titles** for all entries
-3. **Provide immediate feedback** for debug actions
-4. **Test debug flows** regularly during development
+1. **Organize entries logically** using sections  
+2. **Use clear, descriptive titles** for all entries  
+3. **Provide immediate feedback** for debug actions  
+4. **Test debug flows** regularly during development  
 
 ---
 
@@ -484,20 +486,20 @@ let navigationButton = DebugEntryButton(
 
 ### Common Issues
 
-**Debug tool not appearing:**
-- Check if password strategy is correctly configured
-- Verify initialization order in AppDelegate
-- Ensure debug configuration is passed to presentation layer
+**Debug tool not appearing:**  
+- Check if password strategy is correctly configured  
+- Verify initialization order in AppDelegate  
+- Ensure debug configuration is passed to presentation layer  
 
-**State sync not working:**
-- Verify bidirectional sync callbacks are set up
-- Check if state updates are happening on main thread
-- Ensure proper memory management (avoid retain cycles)
+**State sync not working:**  
+- Verify bidirectional sync callbacks are set up  
+- Check if state updates are happening on main thread  
+- Ensure proper memory management (avoid retain cycles)  
 
-**Performance issues:**
-- Move expensive operations out of entry initialization
-- Use lazy loading for debug entries that access files/network
-- Implement proper cleanup in deinitializers
+**Performance issues:**  
+- Move expensive operations out of entry initialization  
+- Use lazy loading for debug entries that access files/network  
+- Implement proper cleanup in deinitializers  
 
 ---
 
