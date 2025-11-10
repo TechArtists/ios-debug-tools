@@ -185,13 +185,11 @@ public struct TAPrettyLogViewer: View {
 
     /// Build the human-readable analytics report from raw log text - runs off main actor
     private func generateReportAsync(from rawText: String) async -> String {
-        return await Task.detached(priority: .userInitiated) {
+        return await Task {
             Self.generateReport(from: rawText)
         }.value
     }
     
-    /// Static method to generate report - not tied to main actor
-    nonisolated
     private static func generateReport(from rawText: String) -> String {
         let parser = PrettyLogParser()
         let sessions = parser.parse(rawText)

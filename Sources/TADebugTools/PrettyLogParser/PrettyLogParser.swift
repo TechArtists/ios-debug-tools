@@ -10,36 +10,43 @@ import Foundation
 // MARK: - Configuration
 
 struct EventConfig {
-    // Keywords that indicate session start
-    let sessionStartKeywords = ["App launched", "app_launch", "session_start", "App launch completed successfully"]
+    // Generic keywords that indicate session start (pattern-based)
+    let sessionStartKeywords = [
+        "app_launch", "app launch", "session_start", "launch completed",
+        "app started", "application started", "bootstrap", "initialization complete"
+    ]
     
-    // Keywords that indicate screen views
-    let screenViewKeywords = ["ui_view_show", "screen_view", "view_show", "page_view", "screen_displayed"]
+    // Generic keywords that indicate screen views
+    let screenViewKeywords = [
+        "ui_view_show", "screen_view", "view_show", "page_view", "screen_displayed",
+        "view_appeared", "screen_appeared", "navigate_to", "open_screen"
+    ]
     
-    // Keywords that indicate user actions - expanded list
+    // Generic keywords that indicate user actions (removed app-specific ones)
     let actionKeywords = [
-        "ui_button_tap", "button_tap", "BUTTON_TAPPED", "click", "tap", "action", "event",
-        "NOTE_OPENED", "FONT_FAMILY_CHANGED", "FONT_SIZE_CHANGED", "BACKGROUND_COLOR_CHANGED", 
-        "NOTE_MODE_CHANGED", "AFFIRMATION_REFRESH_INTERVAL_CHANGED", "TEXT_ALIGNMENT_CHANGED",
-        "SETTING_SORTING_OPTION_CHANGED", "NOTE_SELECTED_IN_MODE", "onboarding_enter",
-        "app_version_update", "paywall_show", "paywall_exit", "NOTE_UPDATED", "SAVE_NOTE", 
-        "CREATE_NOTE"
+        "ui_button_tap", "button_tap", "button_tapped", "click", "tap", "press",
+        "action", "event", "interaction", "user_action", "gesture",
+        "swipe", "scroll", "select", "toggle", "change", "update",
+        "create", "delete", "save", "share", "refresh", "search"
     ]
     
     // Keywords that indicate session end
-    let sessionEndKeywords = ["app_close", "session_end", "app_background"]
+    let sessionEndKeywords = [
+        "app_close", "session_end", "app_background", "app_terminated",
+        "application_will_terminate", "session_ended"
+    ]
     
     // Common parameter names for screen identification
-    let screenParamNames = ["name", "screen", "screen_name", "view", "page"]
+    let screenParamNames = ["name", "screen", "screen_name", "view", "page", "view_name"]
     
     // Common parameter names for action identification
-    let actionParamNames = ["name", "action", "event", "button", "type"]
+    let actionParamNames = ["name", "action", "event", "button", "type", "event_name"]
     
     // Minimum duration for screens (in seconds) to avoid 0s displays
     let minimumScreenDuration: TimeInterval = 0.1
     
-    // Categories to process - only analytics events
-    let allowedCategories = ["analytics"]
+    // Categories to process - look for analytics-related categories
+    let allowedCategories = ["analytics", "tracking", "events", "metrics"]
 }
 
 // MARK: - Parser
@@ -169,7 +176,7 @@ class PrettyLogParser {
     }
     
     private func processLogEntry(_ entry: LogEntry) {
-        // More flexible category filtering - check if category contains any allowed category
+        
         let categoryLower = entry.category.lowercased()
         let isAllowedCategory = config.allowedCategories.contains { allowedCategory in
             categoryLower.contains(allowedCategory.lowercased())
@@ -283,8 +290,9 @@ class PrettyLogParser {
     }
     
     private func isSessionStart(_ entry: LogEntry) -> Bool {
+        let messageLower = entry.message.lowercased()
         return config.sessionStartKeywords.contains { keyword in
-            entry.message.contains(keyword)
+            messageLower.contains(keyword.lowercased())
         }
     }
     
@@ -294,8 +302,9 @@ class PrettyLogParser {
             return true
         }
         
+        let messageLower = entry.message.lowercased()
         return config.screenViewKeywords.contains { keyword in
-            entry.message.contains(keyword) && !entry.message.contains("Adaptor:")
+            messageLower.contains(keyword.lowercased()) && !entry.message.contains("Adaptor:")
         }
     }
     
@@ -327,17 +336,19 @@ class PrettyLogParser {
             }
         }
         
-        // Fallback to keyword checking for non-sendEvent patterns
+        // Fallback to generic keyword checking for non-sendEvent patterns
+        let messageLower = entry.message.lowercased()
         let isAction = config.actionKeywords.contains { keyword in
-            entry.message.contains(keyword) && !entry.message.contains("Adaptor:")
+            messageLower.contains(keyword.lowercased()) && !entry.message.contains("Adaptor:")
         }
         
         return isAction
     }
     
     private func isSessionEnd(_ entry: LogEntry) -> Bool {
+        let messageLower = entry.message.lowercased()
         return config.sessionEndKeywords.contains { keyword in
-            entry.message.contains(keyword)
+            messageLower.contains(keyword.lowercased())
         }
     }
     
@@ -368,12 +379,6 @@ class PrettyLogParser {
                 let afterEvent = entry.message[start.upperBound...]
                 if let comma = afterEvent.firstIndex(of: ",") {
                     let eventType = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
-                    
-                    // For BUTTON_TAPPED events, try to get the specific button name
-                    if eventType == "BUTTON_TAPPED", let buttonName = entry.params["button"] {
-                        return buttonName
-                    }
-                    
                     return eventType
                 } else {
                     return String(afterEvent).trimmingCharacters(in: .whitespaces)
@@ -381,16 +386,11 @@ class PrettyLogParser {
             }
         }
         
-        // First try standard param names
+        // Try standard param names
         for paramName in config.actionParamNames {
             if let value = entry.params[paramName] {
                 return value
             }
-        }
-        
-        // Try button parameter for BUTTON_TAPPED events
-        if entry.message.contains("BUTTON_TAPPED"), let buttonName = entry.params["button"] {
-            return buttonName
         }
         
         return nil
@@ -430,8 +430,7 @@ class PrettyLogParser {
                 let timeSinceLastOccurrence = timestamp.timeIntervalSince(sessions[sessionIndex].screens[lastIndex].entryTime)
                 
                 // Only allow return to previous screen if enough time has passed (> 10 seconds)
-                // or if it's a legitimate navigation pattern
-                if timeSinceLastOccurrence < 10.0 && !isLegitimateNavigation(from: lastScreen.screenName, to: formattedName) {
+                if timeSinceLastOccurrence < 10.0 {
                     return
                 }
             }
@@ -454,24 +453,6 @@ class PrettyLogParser {
         // Add new screen
         let visit = ScreenVisit(screenName: formattedName, entryTime: timestamp)
         sessions[sessionIndex].screens.append(visit)
-    }
-    
-    /// Check if navigation from one screen to another is legitimate
-    private func isLegitimateNavigation(from: String, to: String) -> Bool {
-        // Define legitimate navigation patterns
-        let legitimatePatterns: [(from: String, to: String)] = [
-            ("Dashboard", "Settings"),
-            ("Settings", "Dashboard"),
-            ("Create Note", "Dashboard"),
-            ("Paywall", "Dashboard"),
-            ("Onboarding Premium", "Paywall"),
-            ("Paywall", "Onboarding Premium")
-        ]
-        
-        return legitimatePatterns.contains { pattern in
-            from.lowercased().contains(pattern.from.lowercased()) && 
-            to.lowercased().contains(pattern.to.lowercased())
-        }
     }
     
     private func addUserAction(sessionIndex: Int, entry: LogEntry) {
@@ -507,21 +488,6 @@ class PrettyLogParser {
             }
         }
         
-        // Extract from direct event mentions - expanded list
-        let events = [
-            "NOTE_OPENED", "NOTE_MODE_CHANGED", "FONT_FAMILY_CHANGED", 
-            "FONT_SIZE_CHANGED", "BACKGROUND_COLOR_CHANGED", "AFFIRMATION_REFRESH_INTERVAL_CHANGED",
-            "TEXT_ALIGNMENT_CHANGED", "SETTING_SORTING_OPTION_CHANGED", "NOTE_SELECTED_IN_MODE",
-            "ui_button_tap", "paywall_show", "paywall_exit", "NOTE_UPDATED", "BUTTON_TAPPED",
-            "onboarding_enter", "app_version_update"
-        ]
-        
-        for event in events {
-            if message.contains(event) {
-                return event
-            }
-        }
-        
         // Check for logged event patterns
         if message.contains("has logged event:") {
             let pattern = #"has logged event: '([^']+)'"#
@@ -539,74 +505,71 @@ class PrettyLogParser {
     private func categorizeAction(_ entry: LogEntry) -> String {
         let msg = entry.message.lowercased()
         
-        // Check for button-related events first (more specific)
-        if msg.contains("button") || msg.contains("tap") {
+        // Generic categorization based on common patterns
+        
+        // Check for button/tap events first (most common)
+        if msg.contains("button") || msg.contains("tap") || msg.contains("click") || msg.contains("press") {
             return "👆"
         }
         
-        // Check for toggle events
-        if msg.contains("toggle") {
+        // Check for toggle/switch events
+        if msg.contains("toggle") || msg.contains("switch") || msg.contains("change") {
             return "🔄"
         }
         
-        // Check for note-related events
-        if msg.contains("note_opened") || msg.contains("note_selected") {
+        // Check for view/open events
+        if msg.contains("view") || msg.contains("open") || msg.contains("show") || msg.contains("display") {
             return "👁️"
         }
         
-        // Check for styling events
-        if msg.contains("font") || msg.contains("color") || msg.contains("alignment") || msg.contains("style") {
-            return "🎨"
-        }
-        
-        // Check for affirmation events
-        if msg.contains("affirmation") {
-            return "✨"
-        }
-        
-        // Check for paywall events
-        if msg.contains("paywall") {
+        // Check for purchase/subscription events
+        if msg.contains("purchase") || msg.contains("subscription") || msg.contains("paywall") || msg.contains("premium") {
             return "💳"
         }
         
         // Check for save/update events
-        if msg.contains("save") || msg.contains("update") {
+        if msg.contains("save") || msg.contains("update") || msg.contains("modify") || msg.contains("edit") {
             return "💾"
         }
         
         // Check for create/add events
-        if msg.contains("create") || msg.contains("add") {
+        if msg.contains("create") || msg.contains("add") || msg.contains("new") {
             return "➕"
         }
         
         // Check for delete/remove events
-        if msg.contains("delete") || msg.contains("remove") {
+        if msg.contains("delete") || msg.contains("remove") || msg.contains("clear") {
             return "🗑️"
         }
         
-        // Check for settings events
-        if msg.contains("settings") || msg.contains("setting") {
+        // Check for settings/configuration events
+        if msg.contains("settings") || msg.contains("setting") || msg.contains("config") || msg.contains("preference") {
             return "⚙️"
         }
         
-        // Check for share events
-        if msg.contains("share") {
+        // Check for share/export events
+        if msg.contains("share") || msg.contains("export") || msg.contains("send") {
             return "📤"
         }
         
-        // Check for onboarding events
-        if msg.contains("onboarding") {
+        // Check for onboarding/tutorial events
+        if msg.contains("onboarding") || msg.contains("tutorial") || msg.contains("intro") {
             return "🚀"
         }
         
-        // Check for version/update events
-        if msg.contains("version") || msg.contains("app_") {
-            return "🔄"
+        // Check for navigation events
+        if msg.contains("navigate") || msg.contains("go_to") || msg.contains("back") {
+            return "🧭"
         }
         
-        // Check for premium/subscription events
-        if msg.contains("premium") || msg.contains("subscription") {
-            return "💎"
+        // Check for search events
+        if msg.contains("search") || msg.contains("filter") || msg.contains("find") {
+            return "🔍"
+        }
+        
+        // Check for refresh/reload events
+        if msg.contains("refresh") || msg.contains("reload") || msg.contains("update") {
+            return "🔄"
         }
         
         // Default for unknown events
@@ -630,7 +593,7 @@ class PrettyLogParser {
         var details = formatScreenName(eventName)
         var additionalInfo: [String] = []
         
-        // Special handling for different event types
+        // Generic handling for different event types
         
         // Button events
         if eventName.lowercased().contains("button") || eventName == "ui_button_tap" {
@@ -638,29 +601,31 @@ class PrettyLogParser {
                 details = formatScreenName(buttonName)
             }
         }
-        // Toggle events  
-        else if eventName.lowercased().contains("toggle") {
-            if let newValue = entry.params["newValue"] ?? entry.params["value"] {
-                additionalInfo.append("→ \(newValue.capitalized)")
-            }
+        // Any events with 'name' parameter
+        else if let name = entry.params["name"] {
+            details = formatScreenName(name)
         }
-        // Premium/subscription events
-        else if eventName.lowercased().contains("premium") || eventName.lowercased().contains("is_premium") {
-            if let newValue = entry.params["newValue"] ?? entry.params["value"] {
-                additionalInfo.append("→ \(newValue.capitalized)")
-            }
+        
+        // Look for value changes
+        if let newValue = entry.params["newValue"] ?? entry.params["value"] ?? entry.params["to"] {
+            additionalInfo.append("→ \(formatScreenName(newValue))")
+        }
+        
+        // Look for 'from' values for transitions
+        if let fromValue = entry.params["from"] ?? entry.params["previous"] {
+            additionalInfo.append("from \(formatScreenName(fromValue))")
         }
         
         // Only add screen context if it's different from current screen
-        if let viewName = entry.params["view_name"],
+        if let viewName = entry.params["view_name"] ?? entry.params["screen"],
            let currentScreen = currentScreen,
            formatScreenName(viewName).lowercased() != currentScreen.lowercased() {
             additionalInfo.append("on \(formatScreenName(viewName))")
         }
         
-        // Add all other meaningful parameters
-        let commonKeys = ["name", "button", "view_name", "newValue", "value"]
-        let excludedKeys = Set(commonKeys + ["timeDelta"]) // Exclude timing info
+        // Add other meaningful parameters (generic approach)
+        let commonKeys = ["name", "button", "view_name", "screen", "newValue", "value", "to", "from", "previous"]
+        let excludedKeys = Set(commonKeys + ["timeDelta", "timestamp"]) // Exclude timing info
         
         for (key, value) in entry.params.sorted(by: { $0.key < $1.key }) {
             if !excludedKeys.contains(key) && !value.isEmpty && value != "nil" {
