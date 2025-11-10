@@ -40,7 +40,10 @@ struct EventConfig {
     let screenParamNames = ["name", "screen", "screen_name", "view", "page", "view_name"]
     
     // Common parameter names for action identification
-    let actionParamNames = ["name", "action", "event", "button", "type", "event_name"]
+    let actionParamNames = [
+        "name", "action", "event", "button", "type", "event_name",
+        "eventName", "event_type", "identifier", "title", "label"
+    ]
     
     // Minimum duration for screens (in seconds) to avoid 0s displays
     let minimumScreenDuration: TimeInterval = 0.1
@@ -176,13 +179,23 @@ class PrettyLogParser {
     }
     
     private func processLogEntry(_ entry: LogEntry) {
-        
+        // More flexible category filtering - check if category contains any allowed category
         let categoryLower = entry.category.lowercased()
+        let messageLower = entry.message.lowercased()
+        
+        // Check both category and message content for analytics-related content
         let isAllowedCategory = config.allowedCategories.contains { allowedCategory in
             categoryLower.contains(allowedCategory.lowercased())
         }
         
-        if !isAllowedCategory {
+        // Also allow entries from main category if they contain session or analytics keywords
+        let isRelevantMainEntry = categoryLower.contains("main") && (
+            isSessionStart(entry) || isSessionEnd(entry) ||
+            messageLower.contains("launch") || messageLower.contains("premium status") ||
+            messageLower.contains("app") || messageLower.contains("session")
+        )
+        
+        if !isAllowedCategory && !isRelevantMainEntry {
             return
         }
         
@@ -191,7 +204,7 @@ class PrettyLogParser {
             return
         }
         
-        // Skip other adaptor/system messages
+        // Skip other adaptor/system messages  
         if entry.message.contains("Adaptor:") && (
             entry.message.contains("has been started") ||
             entry.message.contains("Starting with install type") ||
@@ -298,7 +311,7 @@ class PrettyLogParser {
     
     private func isScreenView(_ entry: LogEntry) -> Bool {
         // Only count original sendEvent lines for screen views
-        if entry.message.contains("sendEvent: ui_view_show") {
+        if entry.message.contains("sendEvent: ui_view_show") || entry.message.contains("sendEvent: screen_view") {
             return true
         }
         
@@ -323,7 +336,7 @@ class PrettyLogParser {
                     let eventType = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
                     
                     // Only exclude screen view events
-                    if eventType == "ui_view_show" {
+                    if eventType == "ui_view_show" || eventType == "screen_view" {
                         return false
                     }
                     
@@ -331,7 +344,7 @@ class PrettyLogParser {
                     return true
                 } else {
                     let eventType = String(afterEvent).trimmingCharacters(in: .whitespaces)
-                    return eventType != "ui_view_show"
+                    return eventType != "ui_view_show" && eventType != "screen_view"
                 }
             }
         }
@@ -354,13 +367,18 @@ class PrettyLogParser {
     
     private func extractScreenName(_ entry: LogEntry) -> String? {
         // Handle sendEvent: ui_view_show format
-        if entry.message.contains("sendEvent: ui_view_show") {
+        if entry.message.contains("sendEvent: ui_view_show") || entry.message.contains("sendEvent: screen_view") {
             if let name = entry.params["name"] {
                 return formatScreenName(name)
             }
             // Also check for type parameter for paywall screens
             if let type = entry.params["type"] {
                 return formatScreenName("Paywall (\(type))")
+            }
+            // Check for secondary_view_name for modal/overlay screens
+            if let secondaryView = entry.params["secondary_view_name"] {
+                let primaryView = entry.params["name"] ?? "Screen"
+                return formatScreenName("\(primaryView) > \(secondaryView)")
             }
         }
         
@@ -372,28 +390,133 @@ class PrettyLogParser {
         return nil
     }
     
-    private func extractActionName(_ entry: LogEntry) -> String? {
-        // Handle sendEvent: format
-        if entry.message.contains("sendEvent:") {
-            if let start = entry.message.range(of: "sendEvent: ") {
-                let afterEvent = entry.message[start.upperBound...]
-                if let comma = afterEvent.firstIndex(of: ",") {
-                    let eventType = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
-                    return eventType
-                } else {
-                    return String(afterEvent).trimmingCharacters(in: .whitespaces)
-                }
+    private func extractEventTypeFromSendEvent(_ message: String) -> String {
+        guard message.contains("sendEvent:") else {
+            return "Unknown Action"
+        }
+        
+        if let start = message.range(of: "sendEvent: ") {
+            let afterEvent = message[start.upperBound...]
+            if let comma = afterEvent.firstIndex(of: ",") {
+                let eventType = String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
+                return eventType.isEmpty ? "sendEvent" : eventType
+            } else {
+                let eventType = String(afterEvent).trimmingCharacters(in: .whitespaces)
+                return eventType.isEmpty ? "sendEvent" : eventType
             }
         }
         
-        // Try standard param names
+        return "sendEvent" // Fallback for sendEvent format
+    }
+    
+    private func extractActionName(_ entry: LogEntry) -> String {
+        // For sendEvent messages, always extract the event type
+        if entry.message.contains("sendEvent:") {
+            return extractEventTypeFromSendEvent(entry.message)
+        }
+        
+        // Try standard param names for non-sendEvent messages
         for paramName in config.actionParamNames {
             if let value = entry.params[paramName] {
                 return value
             }
         }
         
+        // Check for logged event patterns (legacy support)
+        if entry.message.contains("has logged event:") {
+            let pattern = #"has logged event: '([^']+)'"#
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: entry.message, range: NSRange(entry.message.startIndex..., in: entry.message)) {
+                if let range = Range(match.range(at: 1), in: entry.message) {
+                    return String(entry.message[range])
+                }
+            }
+        }
+
+        if let propertyAction = extractUserPropertyActionName(entry) {
+            return propertyAction
+        }
+
+        if let derivedName = deriveActionNameFromMessage(entry.message) {
+            return derivedName
+        }
+        
+        return "Unknown Action"
+    }
+
+    private func extractUserPropertyActionName(_ entry: LogEntry) -> String? {
+        guard let propertyName = extractUserPropertyName(entry) else {
+            return nil
+        }
+        let formattedProperty = formatScreenName(propertyName)
+        return "Set User Property: \(formattedProperty)"
+    }
+
+    private func extractUserPropertyName(_ entry: LogEntry) -> String? {
+        let propertyKeys = ["setuserproperty", "set_user_property", "property_name"]
+        for key in propertyKeys {
+            if let value = entry.params.first(where: { $0.key.lowercased() == key })?.value,
+               !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+        
+        guard entry.message.lowercased().contains("setuserproperty") else {
+            return nil
+        }
+        
+        let pattern = #"setuserproperty[^\w]*[:=]\s*([^,\n]+)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        
+        let range = NSRange(entry.message.startIndex..., in: entry.message)
+        if let match = regex.firstMatch(in: entry.message, range: range),
+           let propertyRange = Range(match.range(at: 1), in: entry.message) {
+            var property = String(entry.message[propertyRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            if let arrowRange = property.range(of: "->") {
+                property = property[..<arrowRange.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            
+            if let commaRange = property.firstIndex(of: ",") {
+                property = property[..<commaRange].trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            
+            if !property.isEmpty {
+                return property
+            }
+        }
+        
         return nil
+    }
+
+    private func deriveActionNameFromMessage(_ message: String) -> String? {
+        var trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedMessage.isEmpty else { return nil }
+        
+        if let closingBracket = trimmedMessage.lastIndex(of: "]") {
+            trimmedMessage = String(trimmedMessage[trimmedMessage.index(after: closingBracket)...])
+        }
+        
+        trimmedMessage = trimmedMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedMessage.hasPrefix(":") {
+            trimmedMessage = String(trimmedMessage.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        let lowered = trimmedMessage.lowercased()
+        if lowered.hasPrefix("sendevent") || lowered.hasPrefix("has logged event") {
+            return nil
+        }
+        
+        let stopCharacters: [Character] = ["(", ","]
+        if let stopIndex = trimmedMessage.firstIndex(where: { stopCharacters.contains($0) }) {
+            trimmedMessage = String(trimmedMessage[..<stopIndex])
+        }
+        
+        let whitespaceAndPunctuation = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)
+        trimmedMessage = trimmedMessage.trimmingCharacters(in: whitespaceAndPunctuation)
+        return trimmedMessage.isEmpty ? nil : trimmedMessage
     }
     
     private func extractSessionMetadata(_ entry: LogEntry) -> [String: String] {
@@ -464,42 +587,18 @@ class PrettyLogParser {
         
         let screenIdx = sessions[sessionIndex].screens.count - 1
         let currentScreenName = sessions[sessionIndex].screens[screenIdx].screenName
-        let actionName = extractActionName(entry) ?? extractEventTypeFromMessage(entry.message)
+        
+        // Extract action name - for sendEvent this should NEVER be "Unknown Action"
+        let actionName = extractActionName(entry)
         
         // Determine action type from message content
         let actionType = categorizeAction(entry)
         
-        // Format details with current screen context for comparison
+        // Format details with current screen context
         let details = formatActionDetails(actionName, entry: entry, currentScreen: currentScreenName)
         
         let action = UserAction(timestamp: entry.timestamp, actionType: actionType, details: details, rawEvent: actionName)
         sessions[sessionIndex].screens[screenIdx].actions.append(action)
-    }
-    
-    private func extractEventTypeFromMessage(_ message: String) -> String {
-        if message.contains("sendEvent:") {
-            if let start = message.range(of: "sendEvent: ") {
-                let afterEvent = message[start.upperBound...]
-                if let comma = afterEvent.firstIndex(of: ",") {
-                    return String(afterEvent[..<comma]).trimmingCharacters(in: .whitespaces)
-                } else {
-                    return String(afterEvent).trimmingCharacters(in: .whitespaces)
-                }
-            }
-        }
-        
-        // Check for logged event patterns
-        if message.contains("has logged event:") {
-            let pattern = #"has logged event: '([^']+)'"#
-            if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(in: message, range: NSRange(message.startIndex..., in: message)) {
-                if let range = Range(match.range(at: 1), in: message) {
-                    return String(message[range])
-                }
-            }
-        }
-        
-        return "Unknown Action"
     }
     
     private func categorizeAction(_ entry: LogEntry) -> String {
@@ -543,7 +642,7 @@ class PrettyLogParser {
         }
         
         // Check for settings/configuration events
-        if msg.contains("settings") || msg.contains("setting") || msg.contains("config") || msg.contains("preference") {
+        if msg.contains("settings") || msg.contains("setting") || msg.contains("config") || msg.contains("preference") || msg.contains("property") || msg.contains("setuserproperty") {
             return "⚙️"
         }
         
@@ -570,6 +669,21 @@ class PrettyLogParser {
         // Check for refresh/reload events
         if msg.contains("refresh") || msg.contains("reload") || msg.contains("update") {
             return "🔄"
+        }
+        
+        // Check for speed test events
+        if msg.contains("speedtest") || msg.contains("speed") || msg.contains("test") {
+            return "⚡"
+        }
+        
+        // Check for VPN/connection events
+        if msg.contains("vpn") || msg.contains("connect") || msg.contains("server") {
+            return "🔐"
+        }
+        
+        // Check for tutorial/engagement events
+        if msg.contains("engagement") || msg.contains("completed") {
+            return "✨"
         }
         
         // Default for unknown events
@@ -624,8 +738,8 @@ class PrettyLogParser {
         }
         
         // Add other meaningful parameters (generic approach)
-        let commonKeys = ["name", "button", "view_name", "screen", "newValue", "value", "to", "from", "previous"]
-        let excludedKeys = Set(commonKeys + ["timeDelta", "timestamp"]) // Exclude timing info
+        let commonKeys = ["name", "button", "view_name", "screen", "newValue", "value", "to", "from", "previous", "detail"]
+        let excludedKeys = Set(commonKeys + ["timeDelta", "timestamp", "setuserproperty", "set_user_property", "property_name"]) // Exclude timing info
         
         for (key, value) in entry.params.sorted(by: { $0.key < $1.key }) {
             if !excludedKeys.contains(key) && !value.isEmpty && value != "nil" {
