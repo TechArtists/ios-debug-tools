@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 //
-//  TAPrettyLogViewer.swift
+//  TAAnalyticsReportViewer.swift
 //  TADebugTools
 //
 //  Created by Robert Tataru on 24.10.2025.
@@ -34,7 +34,7 @@ import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
-public struct TAPrettyLogViewer: View {
+public struct TAAnalyticsReportViewer: View {
     // MARK: Inputs
     private let fileURL: URL?
     private let initialText: String?
@@ -140,7 +140,7 @@ public struct TAPrettyLogViewer: View {
                 .font(.system(size: 40))
             Text("No report to display")
                 .font(.headline)
-            Text("Generate the report and pass its file URL (or the raw text) to TAPrettyLogViewer.")
+            Text("Generate the report and pass its file URL (or the raw text) to TAAnalyticsReportViewer.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
@@ -196,7 +196,7 @@ public struct TAPrettyLogViewer: View {
                 isGeneratingReport = false
                 contents = report
             } else {
-                throw NSError(domain: "TAPrettyLogViewer", code: -2, userInfo: [NSLocalizedDescriptionKey: "Unsupported text encoding."])
+                throw NSError(domain: "TAAnalyticsReportViewer", code: -2, userInfo: [NSLocalizedDescriptionKey: "Unsupported text encoding."])
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -214,7 +214,7 @@ public struct TAPrettyLogViewer: View {
     }
     
     private static func generateReport(from rawText: String) -> String {
-        let parser = PrettyLogParser()
+        let parser = AnalyticsReportParser()
         let sessions = parser.parse(rawText)
         let generator = ReportGenerator()
         
@@ -289,7 +289,7 @@ private struct SharePreviewItem: Transferable {
 // MARK: - Preview
 
 #if DEBUG
-struct TAPrettyLogViewer_Previews: PreviewProvider {
+struct TAAnalyticsReportViewer_Previews: PreviewProvider {
     static var sampleLog: String {
         """
         ///
@@ -297,7 +297,7 @@ struct TAPrettyLogViewer_Previews: PreviewProvider {
     }
 
     static var previews: some View {
-        TAPrettyLogViewer(text: sampleLog, title: "Improved Analytics Report")
+        TAAnalyticsReportViewer(text: sampleLog, title: "Improved Analytics Report")
     }
 }
 #endif

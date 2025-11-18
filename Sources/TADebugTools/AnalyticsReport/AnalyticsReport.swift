@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 //
-//  PrettyLogParser.swift
+//  AnalyticsReport.swift
 //  TADebugTools
 //
 //  Created by Robert Tataru on 24.10.2025.
@@ -77,7 +77,7 @@ struct EventConfig {
 
 // MARK: - Parser
 
-class PrettyLogParser {
+class AnalyticsReportParser {
     private let dateFormatter: DateFormatter
     private var sessions: [Session] = []
     private var currentSessionIndex: Int?
