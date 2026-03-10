@@ -39,11 +39,17 @@ public struct TADebugToolView: View {
     @State private var ipAddress: String?
     @State private var passwordInput = ""
     
+    @MainActor
     public init(
-        configuration: TADebugToolConfiguration = TADebugToolConfiguration()
+        configuration: TADebugToolConfiguration
     ) {
         self._configuration = StateObject(wrappedValue: configuration)
         accessUserDefaultsForAllGroups()
+    }
+
+    @MainActor
+    public init() {
+        self.init(configuration: TADebugToolConfiguration())
     }
     
     public var body: some View {

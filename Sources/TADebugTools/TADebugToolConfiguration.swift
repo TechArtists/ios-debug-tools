@@ -31,6 +31,7 @@ SOFTWARE.
 
 import SwiftUI
 
+@MainActor
 open class TADebugToolConfiguration: ObservableObject {
     
     @Published public var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]

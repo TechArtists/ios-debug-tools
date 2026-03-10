@@ -130,6 +130,7 @@ import Combine
         self.debugSection = section
     }
     
+    @MainActor
     static public subscript<EnclosingSelf: TADebugToolConfiguration>(
         _enclosingInstance instance: EnclosingSelf,
         wrapped wrappedKeyPath: ReferenceWritableKeyPath<EnclosingSelf, Value>,
@@ -156,6 +157,7 @@ extension Debuggable {
 
 extension Debuggable: Preparable {
     
+    @MainActor
     func prepare(ownedBy debugConfiguration: TADebugToolConfiguration) {
         debugConfiguration.addEntry(anyDebugEntry, to: debugSection)
     }
@@ -163,5 +165,6 @@ extension Debuggable: Preparable {
 
 protocol Preparable {
     
+    @MainActor
     func prepare( ownedBy debugConfiguration: TADebugToolConfiguration)
 }
