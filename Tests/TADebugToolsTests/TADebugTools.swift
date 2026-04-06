@@ -72,6 +72,23 @@ import Testing
     #expect(filteredItems.first?.message == "paywall_error")
 }
 
+@Test func analyticsReportParserIgnoresAdaptorConfirmationLines() {
+    let logContent = """
+    2026-04-07T10:00:00+0300 info [TAAnalytics] : sendEvent: ui_view_show, params: Optional("name:Home")
+    2026-04-07T10:00:01+0300 info [TAAnalytics] : Adaptor: 'FirebaseAnalyticsAdaptor' has logged event: 'ui_view_show', params: [name:Home]
+    2026-04-07T10:00:02+0300 info [TAAnalytics] : sendEvent: ui_button_tap, params: Optional("name:Continue")
+    2026-04-07T10:00:03+0300 info [TAAnalytics] : Adaptor: 'FirebaseAnalyticsAdaptor' has logged event: 'ui_button_tap', params: [name:Continue]
+    """
+
+    let sessions = AnalyticsReportParser().parse(logContent)
+
+    #expect(sessions.count == 1)
+    #expect(sessions.first?.screens.count == 1)
+    #expect(sessions.first?.screens.first?.screenName == "Home")
+    #expect(sessions.first?.screens.first?.actions.count == 1)
+    #expect(sessions.first?.screens.first?.actions.first?.rawEvent == "ui_button_tap")
+}
+
 @Test func collapsedPositionStoreRestoresAllowedPositionOrFallsBack() throws {
     let suiteName = "TADebugToolsTests.\(UUID().uuidString)"
     let userDefaults = try #require(UserDefaults(suiteName: suiteName))
