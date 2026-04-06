@@ -198,7 +198,7 @@ private struct TADebugToolOverlaySheet: View {
         NavigationStack {
             Group {
                 if liveFeedSources.isEmpty {
-                    TADebugToolSectionsView(configuration: configuration, ipAddress: nil)
+                    TADebugToolSectionsView(configuration: configuration)
                 } else {
                     VStack(spacing: 12) {
                         Picker("Tab", selection: $selectedTab) {
@@ -243,7 +243,7 @@ private struct TADebugToolOverlaySheet: View {
         case .live:
             TADebugLiveFeedView(liveFeedSources: liveFeedSources)
         case .tools:
-            TADebugToolSectionsView(configuration: configuration, ipAddress: nil)
+            TADebugToolSectionsView(configuration: configuration)
         }
     }
 }

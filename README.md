@@ -9,6 +9,8 @@
 - 🔐 **Flexible Password Protection**: Multiple authentication strategies for different environments  
 - 🧩 **Custom Debug Entries**: Easily add toggles, buttons, text fields, constants, and more  
 - 🗂️ **Sectioned UI**: Organize your debugging entries by category  
+- 🪲 **Floating Overlay Launcher**: Attach the debug tools to any SwiftUI view with a collapsible launcher  
+- 📡 **Live Feed Support**: Stream logs or custom async events directly inside the debug sheet  
 - 🧪 **Property Wrapper Support**: Quickly bind debug state to your app's logic  
 - 🔄 **Bidirectional State Sync**: Keep debug entries in sync with your app's state  
 - 🎯 **Production-Ready**: Environment-specific configurations and hidden access patterns  
@@ -25,7 +27,7 @@ To include **TADebugTools** in your project, add it to your `Package.swift` file
 let package = Package(
     name: "YourProject",
     platforms: [
-        .iOS(.v14)
+        .iOS(.v16)
     ],
     dependencies: [
         .package(
@@ -183,6 +185,89 @@ struct PresentDebugView: View {
     }
 }
 ```
+
+### 3. Attach the Overlay Launcher
+
+If you want the debug tools to be available from anywhere in the app, attach the built-in overlay modifier to your root view.
+
+```swift
+import SwiftUI
+import TADebugTools
+
+struct RootView: View {
+    @StateObject private var debugToolConfiguration = MyDebugToolConfiguration2()
+
+    var body: some View {
+        MainContentView()
+            .taDebugToolOverlay(configuration: debugToolConfiguration)
+    }
+}
+```
+
+The overlay adds a floating launcher button that opens the debug tools in a sheet. The launcher position is persisted between launches.
+
+#### Overlay Options
+
+```swift
+MainContentView()
+    .taDebugToolOverlay(
+        configuration: debugToolConfiguration,
+        allowedPositions: [.topTrailing, .bottomTrailing],
+        initialPosition: .bottomTrailing,
+        sheetConfiguration: TADebugToolSheetConfiguration(
+            detents: [.medium, .large],
+            initialDetent: .large
+        )
+    )
+```
+
+Available collapsed launcher positions:
+
+- `.topLeading`
+- `.topTrailing`
+- `.bottomLeading`
+- `.bottomTrailing`
+
+#### Add Live Feed Sources
+
+You can enrich the overlay sheet with a live feed tab. Each source exposes an `AsyncStream<TADebugLiveFeedItem>`.
+
+```swift
+MainContentView()
+    .taDebugToolOverlay(
+        configuration: debugToolConfiguration,
+        liveFeedSources: [
+            .fileLogs(fileURL: logFileURL),
+            TADebugLiveFeedSource(
+                id: "analytics",
+                title: "Analytics"
+            ) {
+                AsyncStream { continuation in
+                    let task = Task {
+                        for await event in analyticsStream {
+                            continuation.yield(
+                                TADebugLiveFeedItem(
+                                    sourceID: "analytics",
+                                    sourceTitle: "Analytics",
+                                    message: event.name,
+                                    metadataText: event.payloadDescription
+                                )
+                            )
+                        }
+
+                        continuation.finish()
+                    }
+
+                    continuation.onTermination = { _ in
+                        task.cancel()
+                    }
+                }
+            }
+        ]
+    )
+```
+
+Use `.fileLogs(fileURL:)` when you want to tail a log file, or create a custom `TADebugLiveFeedSource` for any async event stream such as analytics, network events, or diagnostics.
 
 ---
 

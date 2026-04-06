@@ -36,7 +36,6 @@ public struct TADebugToolView: View {
     
     @StateObject public var configuration: TADebugToolConfiguration
     @FocusState private var isFocused: Bool
-    @State private var ipAddress: String?
     @State private var passwordInput = ""
     
     @MainActor
@@ -61,7 +60,7 @@ public struct TADebugToolView: View {
             )
         } else {
             NavigationStack {
-                TADebugToolSectionsView(configuration: configuration, ipAddress: ipAddress)
+                TADebugToolSectionsView(configuration: configuration)
                     .navigationTitle("Debug Tools")
                     .navigationBarTitleDisplayMode(.inline)
             }
@@ -126,7 +125,6 @@ private struct TADebugPasswordView: View {
 // MARK: - Sections View
 struct TADebugToolSectionsView: View {
     let configuration: TADebugToolConfiguration
-    let ipAddress: String?
 
     var body: some View {
         List {

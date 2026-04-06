@@ -110,6 +110,10 @@ final class TADebugLiveFeedStore: ObservableObject {
     private var sourceTasks: [String: Task<Void, Never>] = [:]
     private var connectedSourceIDs: [String] = []
 
+    deinit {
+        sourceTasks.values.forEach { $0.cancel() }
+    }
+
     func connect(to sources: [TADebugLiveFeedSource]) {
         let newSourceIDs = sources.map(\.id)
 
@@ -204,9 +208,6 @@ struct TADebugLiveFeedView: View {
         .searchable(text: $searchText, prompt: "Search live feed")
         .task(id: sourceSignature) {
             store.connect(to: liveFeedSources)
-        }
-        .onDisappear {
-            store.disconnect()
         }
     }
 
