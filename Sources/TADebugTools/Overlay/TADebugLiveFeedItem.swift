@@ -22,15 +22,29 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-//
-//  DefaultsConstants.swift
-//  TADebugTools
-//
-//  Created by Robert Tataru on 03.02.2025.
-//
+import Foundation
 
-enum DefaultsConstants {
-    static let hasEnteredCorrectPassword = "hasEnteredCorrectPassword"
-    static let embeddedDebugLauncherEnabled = "taDebugToolEmbeddedLauncherEnabled"
-    static let collapsedLauncherPosition = "taDebugToolCollapsedPosition"
+public struct TADebugLiveFeedItem: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public let timestamp: Date
+    public let sourceID: String
+    public let sourceTitle: String
+    public let message: String
+    public let metadataText: String?
+
+    public init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        sourceID: String,
+        sourceTitle: String,
+        message: String,
+        metadataText: String? = nil
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.sourceID = sourceID
+        self.sourceTitle = sourceTitle
+        self.message = message
+        self.metadataText = metadataText
+    }
 }

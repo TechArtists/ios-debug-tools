@@ -22,9 +22,90 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import Foundation
 import Testing
 @testable import TADebugTools
 
-@Test func example() async throws {
-    // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+@Test func liveFeedBufferKeepsNewestItemsOnly() {
+    var buffer = TADebugLiveFeedBuffer(capacity: 3)
+
+    for index in 1...4 {
+        buffer.append(
+            TADebugLiveFeedItem(
+                sourceID: TADebugLiveFeedSource.logsSourceID,
+                sourceTitle: "Logs",
+                message: "message-\(index)"
+            )
+        )
+    }
+
+    #expect(buffer.items.map(\.message) == ["message-2", "message-3", "message-4"])
+}
+
+@Test func liveFeedQueryFiltersBySourceAndSearchText() {
+    let items = [
+        TADebugLiveFeedItem(
+            sourceID: TADebugLiveFeedSource.logsSourceID,
+            sourceTitle: "Logs",
+            message: "app launched"
+        ),
+        TADebugLiveFeedItem(
+            sourceID: TADebugLiveFeedSource.analyticsSourceID,
+            sourceTitle: "Analytics",
+            message: "purchase_complete"
+        ),
+        TADebugLiveFeedItem(
+            sourceID: TADebugLiveFeedSource.analyticsSourceID,
+            sourceTitle: "Analytics",
+            message: "paywall_error",
+            metadataText: "network timeout"
+        )
+    ]
+
+    let filteredItems = TADebugLiveFeedQuery(
+        sourceFilter: .analytics,
+        searchText: "network"
+    )
+    .filteredItems(from: items)
+
+    #expect(filteredItems.count == 1)
+    #expect(filteredItems.first?.message == "paywall_error")
+}
+
+@Test func collapsedPositionStoreRestoresAllowedPositionOrFallsBack() throws {
+    let suiteName = "TADebugToolsTests.\(UUID().uuidString)"
+    let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+    let store = TADebugToolCollapsedPositionStore(key: "collapsedPosition")
+
+    defer {
+        userDefaults.removePersistentDomain(forName: suiteName)
+    }
+
+    #expect(
+        store.load(
+            allowedPositions: [.topLeading, .bottomTrailing],
+            initialPosition: .bottomTrailing,
+            userDefaults: userDefaults
+        ) == .bottomTrailing
+    )
+
+    store.save(.topLeading, userDefaults: userDefaults)
+
+    #expect(
+        store.load(
+            allowedPositions: [.topLeading, .bottomTrailing],
+            initialPosition: .bottomTrailing,
+            userDefaults: userDefaults
+        ) == .topLeading
+    )
+
+    userDefaults.set(TADebugToolCollapsedPosition.topTrailing.rawValue, forKey: "collapsedPosition")
+
+    #expect(
+        store.load(
+            allowedPositions: [.bottomLeading, .bottomTrailing],
+            initialPosition: .bottomLeading,
+            userDefaults: userDefaults
+        ) == .bottomLeading
+    )
 }

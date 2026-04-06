@@ -39,37 +39,52 @@ struct ExampleAppApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                VStack(spacing: 20) {
-                    NavigationLink {
-                        PresentDebugView()
-                    } label: {
-                        Text("Vanilla View")
-                            .font(.title3)
+                List {
+                    Section("Debug Tool Examples") {
+                        NavigationLink {
+                            PresentDebugView()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Embedded Debug Menu Demo")
+                                    .font(.headline)
+                                Text("Open the main tool, enable the launcher, then return and use the floating menu.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
-                    
-                    NavigationLink {
-                        PaywallView()
-                    } label: {
-                        Text("PaywallView")
-                            .font(.title3)
-                    }
-                    
-                    NavigationLink {
-                        PaywallWithDebugEntryView()
-                    } label: {
-                        Text("PaywallWithDebugEntryView")
-                            .font(.title3)
-                    }
-                    
-                    NavigationLink {
-                        PaywalSingleSourceTruth()
-                    } label: {
-                        Text("PaywalSingleSourceTruth")
-                            .font(.title3)
+
+                    Section("Other Examples") {
+                        NavigationLink {
+                            PaywallView()
+                        } label: {
+                            Text("PaywallView")
+                                .font(.title3)
+                        }
+
+                        NavigationLink {
+                            PaywallWithDebugEntryView()
+                        } label: {
+                            Text("PaywallWithDebugEntryView")
+                                .font(.title3)
+                        }
+
+                        NavigationLink {
+                            PaywalSingleSourceTruth()
+                        } label: {
+                            Text("PaywalSingleSourceTruth")
+                                .font(.title3)
+                        }
                     }
                 }
+                .navigationTitle("TADebugTools")
             }
             .environmentObject(debugToolConfiguration)
+            .taDebugToolOverlay(
+                configuration: debugToolConfiguration,
+                liveFeedSources: ExampleDebugMenuLiveFeed.sources,
+                initialPosition: .bottomTrailing
+            )
         }
     }
 }

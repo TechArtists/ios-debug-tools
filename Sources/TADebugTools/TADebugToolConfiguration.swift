@@ -36,11 +36,22 @@ open class TADebugToolConfiguration: ObservableObject {
 
     @Published public var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]
     
+    public let embeddedDebugLauncherEnabledEntry: DebugEntryBool
+    
     let passwordManager: PasswordManager
     var isDebuggableReady = false
+
+    public var isEmbeddedDebugLauncherEnabled: Bool {
+        embeddedDebugLauncherEnabledEntry.wrappedValue
+    }
     
     public init(passwordType: PasswordType = .static(password: "")) {
         self.passwordManager = PasswordManager(passwordType: passwordType)
+        self.embeddedDebugLauncherEnabledEntry = .init(
+            title: "Enable Embedded Debug Launcher",
+            wrappedValue: UserDefaults.standard.bool(forKey: DefaultsConstants.embeddedDebugLauncherEnabled),
+            labels: [.persistsBetweenSessions]
+        )
         self.sections = [
             DebugToolSection.app: [:],
             DebugToolSection.appSettings: appSettingEntries,
@@ -50,6 +61,13 @@ open class TADebugToolConfiguration: ObservableObject {
             DebugToolSection.others: [:]
         ]
         UserDefaults.standard.setValue(false, forKey: DefaultsConstants.hasEnteredCorrectPassword)
+        embeddedDebugLauncherEnabledEntry.onUpdateFromDebugTool = { newValue in
+            UserDefaults.standard.set(newValue, forKey: DefaultsConstants.embeddedDebugLauncherEnabled)
+        }
+        embeddedDebugLauncherEnabledEntry.onUpdateFromApp = { [weak self] newValue in
+            self?.embeddedDebugLauncherEnabledEntry.wrappedValue = newValue
+        }
+        bindInitialEntriesToConfiguration()
         //If needed might not be needed :)
         prepareDebuggableIfNeeded()
     }
@@ -80,6 +98,18 @@ open class TADebugToolConfiguration: ObservableObject {
             }
             
             preparable.prepare(ownedBy: self)
+        }
+    }
+
+    private func bindInitialEntriesToConfiguration() {
+        for section in sections.keys {
+            guard let entries = sections[section]?.values else {
+                continue
+            }
+
+            for entry in entries {
+                entry.taDebugToolConfiguration = self
+            }
         }
     }
 
@@ -114,6 +144,7 @@ open class TADebugToolConfiguration: ObservableObject {
                     }
                 }
             ),
+            embeddedDebugLauncherEnabledEntry.title: embeddedDebugLauncherEnabledEntry,
             "App Short Version": DebugEntryConstant(
                 title: "App Short Version",
                 wrappedValue: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""

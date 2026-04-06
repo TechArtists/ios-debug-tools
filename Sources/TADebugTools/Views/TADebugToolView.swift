@@ -51,7 +51,7 @@ public struct TADebugToolView: View {
     public init() {
         self.init(configuration: TADebugToolConfiguration())
     }
-    
+
     public var body: some View {
         if shouldShowPasswordInput {
             TADebugPasswordView(
@@ -60,26 +60,27 @@ public struct TADebugToolView: View {
                 keyboardType: configuration.passwordManager.keyBoardType()
             )
         } else {
-            TADebugToolSectionsView(configuration: configuration, ipAddress: ipAddress)
+            NavigationStack {
+                TADebugToolSectionsView(configuration: configuration, ipAddress: ipAddress)
+                    .navigationTitle("Debug Tools")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
         }
     }
-}
 
-// MARK: - Password Handling
-extension TADebugToolView {
     private var shouldShowPasswordInput: Bool {
         let hasEnteredCorrectPassword = UserDefaults.standard.bool(forKey: DefaultsConstants.hasEnteredCorrectPassword)
-        
+
         if hasEnteredCorrectPassword {
             return false
         }
-        
+
         let isPasswordCorrect = configuration.passwordManager.isPasswordCorrect(passwordInput)
-        
+
         if isPasswordCorrect {
             UserDefaults.standard.setValue(true, forKey: DefaultsConstants.hasEnteredCorrectPassword)
         }
-        
+
         return !isPasswordCorrect
     }
 }
@@ -123,17 +124,13 @@ private struct TADebugPasswordView: View {
 }
 
 // MARK: - Sections View
-private struct TADebugToolSectionsView: View {
+struct TADebugToolSectionsView: View {
     let configuration: TADebugToolConfiguration
     let ipAddress: String?
 
     var body: some View {
-        NavigationView {
-            List {
-                sectionList
-            }
-            .navigationTitle("Debug Tools")
-            .navigationBarTitleDisplayMode(.inline)
+        List {
+            sectionList
         }
     }
     

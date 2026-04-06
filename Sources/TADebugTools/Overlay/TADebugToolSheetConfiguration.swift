@@ -22,15 +22,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-//
-//  DefaultsConstants.swift
-//  TADebugTools
-//
-//  Created by Robert Tataru on 03.02.2025.
-//
+import SwiftUI
 
-enum DefaultsConstants {
-    static let hasEnteredCorrectPassword = "hasEnteredCorrectPassword"
-    static let embeddedDebugLauncherEnabled = "taDebugToolEmbeddedLauncherEnabled"
-    static let collapsedLauncherPosition = "taDebugToolCollapsedPosition"
+public struct TADebugToolSheetConfiguration {
+    public let detents: [PresentationDetent]
+    public let initialDetent: PresentationDetent
+
+    public init(
+        detents: [PresentationDetent] = [.medium, .large],
+        initialDetent: PresentationDetent = .medium
+    ) {
+        let normalizedDetents = detents.isEmpty ? [.medium, .large] : detents
+        self.detents = normalizedDetents
+        self.initialDetent = normalizedDetents.contains(initialDetent) ? initialDetent : normalizedDetents[0]
+    }
+
+    public static let `default` = TADebugToolSheetConfiguration()
 }

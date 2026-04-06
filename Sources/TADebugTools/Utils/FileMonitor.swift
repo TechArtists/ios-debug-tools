@@ -69,7 +69,6 @@ class FileMonitor: @unchecked Sendable {
     init(fileURL: URL) {
         self.fileURL = fileURL
         setupDebounce()
-        startMonitoring()
     }
     
     private func setupDebounce() {
@@ -97,6 +96,10 @@ class FileMonitor: @unchecked Sendable {
     }
 
     func startMonitoring() {
+        guard source == nil else {
+            return
+        }
+
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             errorPublisher.send(.fileNotFound)
             return
@@ -134,6 +137,7 @@ class FileMonitor: @unchecked Sendable {
     func stopMonitoring() {
         source?.cancel()
         source = nil
+        fileDescriptor = nil
     }
     
     deinit {

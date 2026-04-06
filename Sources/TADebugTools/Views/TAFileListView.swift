@@ -32,6 +32,11 @@ SOFTWARE.
 import SwiftUI
 import Combine
 
+/// Full-screen file viewer for a single log file.
+///
+/// The view subscribes to `FileMonitor`, keeps its contents in sync as the file changes on disk,
+/// and renders the file as searchable, line-by-line text. Use it when the goal is to inspect the
+/// current contents of one concrete file rather than consume higher-level events.
 public struct TAFileListView: View {
     
     struct Line: Identifiable, Hashable {
@@ -44,8 +49,6 @@ public struct TAFileListView: View {
     @State private var lines: [Line] = []
     @State private var errorMessage: String? = nil
     @State private var searchText: String = ""
-    @State private var lastItemID: UUID? = nil
-    
     @State private var cancellables = Set<AnyCancellable>()
     private var fileMonitor: FileMonitor
 
@@ -97,6 +100,10 @@ public struct TAFileListView: View {
                 .store(in: &cancellables)
 
             fileMonitor.startMonitoring()
+        }
+        .onDisappear {
+            cancellables.removeAll()
+            fileMonitor.stopMonitoring()
         }
     }
 }
