@@ -35,6 +35,7 @@ import SwiftUI
 open class TADebugToolConfiguration: ObservableObject {
 
     @Published public var sections: [DebugToolSection: [String: any DebugEntryProtocol]] = [:]
+    private var entryVisibilityPredicates: [ObjectIdentifier: @MainActor () -> Bool] = [:]
     
     public let embeddedDebugLauncherEnabledEntry: DebugEntryBool
     
@@ -82,6 +83,23 @@ open class TADebugToolConfiguration: ObservableObject {
     
     public func getEntry(_ title: String, in section: DebugToolSection) -> (any DebugEntryProtocol)? {
         sections[section]?[title]
+    }
+
+    public func setVisibility(
+        for entry: any DebugEntryProtocol,
+        isVisible: @escaping @MainActor () -> Bool
+    ) {
+        entryVisibilityPredicates[ObjectIdentifier(entry as AnyObject)] = isVisible
+        objectWillChange.send()
+    }
+
+    public func clearVisibility(for entry: any DebugEntryProtocol) {
+        entryVisibilityPredicates.removeValue(forKey: ObjectIdentifier(entry as AnyObject))
+        objectWillChange.send()
+    }
+
+    func isEntryVisible(_ entry: any DebugEntryProtocol) -> Bool {
+        entryVisibilityPredicates[ObjectIdentifier(entry as AnyObject)]?() ?? true
     }
     
     func prepareDebuggableIfNeeded() {

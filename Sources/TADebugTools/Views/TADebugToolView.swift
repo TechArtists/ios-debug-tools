@@ -149,6 +149,7 @@ struct TADebugToolSectionsView: View {
             .sorted { $0.key.title < $1.key.title }
             .map { section in
                 let sortedEntries = Array(section.value.values)
+                    .filter { configuration.isEntryVisible($0) }
                     .sorted { $0.title < $1.title }
                 return (key: section.key, values: sortedEntries)
             }
