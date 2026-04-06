@@ -54,6 +54,7 @@ private struct TADebugToolOverlayModifier: ViewModifier {
     @State private var isSheetPresented = false
     @State private var selectedDetent: PresentationDetent
     @State private var selectedPosition: TADebugToolCollapsedPosition
+    @StateObject private var liveFeedStore = TADebugLiveFeedStore()
 
     private let positionStore = TADebugToolCollapsedPositionStore(key: DefaultsConstants.collapsedLauncherPosition)
 
@@ -84,6 +85,10 @@ private struct TADebugToolOverlayModifier: ViewModifier {
         .nonEmpty(or: [initialPosition])
     }
 
+    private var liveFeedSourceSignature: String {
+        liveFeedSources.map(\.id).joined(separator: ",")
+    }
+
     func body(content: Content) -> some View {
         content
             .overlay {
@@ -103,6 +108,7 @@ private struct TADebugToolOverlayModifier: ViewModifier {
                 TADebugToolOverlaySheet(
                     configuration: configuration,
                     liveFeedSources: liveFeedSources,
+                    liveFeedStore: liveFeedStore,
                     allowedPositions: sanitizedAllowedPositions,
                     selectedPosition: $selectedPosition
                 )
@@ -117,6 +123,9 @@ private struct TADebugToolOverlayModifier: ViewModifier {
                 selectedPosition = restoredPosition
                 positionStore.save(restoredPosition)
                 selectedDetent = sheetConfiguration.initialDetent
+            }
+            .task(id: liveFeedSourceSignature) {
+                liveFeedStore.connect(to: liveFeedSources)
             }
             .onChange(of: selectedPosition) { newValue in
                 positionStore.save(newValue)
@@ -176,6 +185,7 @@ private enum TADebugToolOverlayTab: String, CaseIterable, Identifiable {
 private struct TADebugToolOverlaySheet: View {
     @ObservedObject var configuration: TADebugToolConfiguration
     let liveFeedSources: [TADebugLiveFeedSource]
+    @ObservedObject var liveFeedStore: TADebugLiveFeedStore
     let allowedPositions: [TADebugToolCollapsedPosition]
 
     @Binding var selectedPosition: TADebugToolCollapsedPosition
@@ -184,11 +194,13 @@ private struct TADebugToolOverlaySheet: View {
     init(
         configuration: TADebugToolConfiguration,
         liveFeedSources: [TADebugLiveFeedSource],
+        liveFeedStore: TADebugLiveFeedStore,
         allowedPositions: [TADebugToolCollapsedPosition],
         selectedPosition: Binding<TADebugToolCollapsedPosition>
     ) {
         self.configuration = configuration
         self.liveFeedSources = liveFeedSources
+        self.liveFeedStore = liveFeedStore
         self.allowedPositions = allowedPositions
         self._selectedPosition = selectedPosition
         self._selectedTab = State(initialValue: liveFeedSources.isEmpty ? .tools : .live)
@@ -241,7 +253,7 @@ private struct TADebugToolOverlaySheet: View {
     private var selectedTabContent: some View {
         switch selectedTab {
         case .live:
-            TADebugLiveFeedView(liveFeedSources: liveFeedSources)
+            TADebugLiveFeedView(liveFeedStore: liveFeedStore)
         case .tools:
             TADebugToolSectionsView(configuration: configuration)
         }

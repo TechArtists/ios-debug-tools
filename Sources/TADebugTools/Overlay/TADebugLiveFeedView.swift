@@ -154,9 +154,8 @@ final class TADebugLiveFeedStore: ObservableObject {
 }
 
 struct TADebugLiveFeedView: View {
-    let liveFeedSources: [TADebugLiveFeedSource]
+    @ObservedObject var liveFeedStore: TADebugLiveFeedStore
 
-    @StateObject private var store = TADebugLiveFeedStore()
     @State private var searchText: String = ""
     @State private var sourceFilter: TADebugLiveFeedSourceFilter = .all
     @State private var autoScrollEnabled = true
@@ -166,11 +165,7 @@ struct TADebugLiveFeedView: View {
             sourceFilter: sourceFilter,
             searchText: searchText
         )
-        .filteredItems(from: store.items)
-    }
-
-    private var sourceSignature: String {
-        liveFeedSources.map(\.id).joined(separator: ",")
+        .filteredItems(from: liveFeedStore.items)
     }
 
     var body: some View {
@@ -206,9 +201,6 @@ struct TADebugLiveFeedView: View {
             }
         }
         .searchable(text: $searchText, prompt: "Search live feed")
-        .task(id: sourceSignature) {
-            store.connect(to: liveFeedSources)
-        }
     }
 
     private var controls: some View {
