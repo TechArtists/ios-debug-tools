@@ -38,6 +38,7 @@ public protocol DebugEntryProtocol: Identifiable, ObservableObject {
     var taDebugToolConfiguration: TADebugToolConfiguration? { get set }
     
     var id: UUID { get }
+    var renderID: UUID { get }
     var title: String { get }
     var wrappedValue: Value { get }
     var labels: [DebugToolLabel] { get }

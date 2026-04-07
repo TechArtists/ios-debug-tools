@@ -36,6 +36,7 @@ public class DebugEntryButton: DebugEntryActionProtocol {
     weak public var taDebugToolConfiguration: TADebugToolConfiguration?
 
     public var id: UUID
+    public var renderID: UUID
     public var title: String
     public var labels: [DebugToolLabel]
     public var onTapShowDestinationView: (() -> AnyView)?
@@ -63,6 +64,7 @@ public class DebugEntryButton: DebugEntryActionProtocol {
         onTapShowDestinationView: (() -> AnyView)? = nil, taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
+        self.renderID = id
         self.title = title
         self.wrappedValue = wrappedValue
         self.labels = labels

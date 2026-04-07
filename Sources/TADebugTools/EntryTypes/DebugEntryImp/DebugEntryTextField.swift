@@ -37,17 +37,17 @@ public class DebugEntryTextField: DebugEntryProtocol {
     weak public var taDebugToolConfiguration: TADebugToolConfiguration?
     
     public var id: UUID
+    @Published public var renderID: UUID
     
     public var title: String
     
-    @Published
-    public var wrappedValue: String  {
+    @Published public var wrappedValue: String  {
         didSet {
             isInitialized = true
-            if let taDebugToolConfiguration, wrappedValue != oldValue {
-                id = UUID()
+            if wrappedValue != oldValue {
+                renderID = UUID()
                 storage?.update(wrappedValue)
-                taDebugToolConfiguration.objectWillChange.send()
+                taDebugToolConfiguration?.objectWillChange.send()
             }
         }
     }
@@ -81,6 +81,7 @@ public class DebugEntryTextField: DebugEntryProtocol {
         title: String, wrappedValue: String?, labels: [DebugToolLabel] = [], storage: AnyStorage<String>? = nil, taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
+        self.renderID = id
         self.title = title
         self.storage = storage
         if let wrappedValue {

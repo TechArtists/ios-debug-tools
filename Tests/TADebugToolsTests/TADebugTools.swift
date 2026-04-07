@@ -26,6 +26,11 @@ import Foundation
 import Testing
 @testable import TADebugTools
 
+private enum TestDebugOption: String, CaseIterable, Hashable {
+    case first
+    case second
+}
+
 @Test func liveFeedBufferKeepsNewestItemsOnly() {
     var buffer = TADebugLiveFeedBuffer(capacity: 3)
 
@@ -40,6 +45,82 @@ import Testing
     }
 
     #expect(buffer.items.map(\.message) == ["message-2", "message-3", "message-4"])
+}
+
+@MainActor
+@Test func valueChangesRefreshRenderIdentityWithoutChangingEntryIdentity() {
+    let boolEntry = DebugEntryBool(title: "Bool", wrappedValue: false)
+    let optionsEntry = DebugEntryOptions(title: "Options", wrappedValue: TestDebugOption.first)
+    let textEntry = DebugEntryTextField(title: "Text", wrappedValue: "before")
+
+    let boolID = boolEntry.id
+    let optionsID = optionsEntry.id
+    let textID = textEntry.id
+    let boolRenderID = boolEntry.renderID
+    let optionsRenderID = optionsEntry.renderID
+    let textRenderID = textEntry.renderID
+
+    boolEntry.wrappedValue = true
+    optionsEntry.wrappedValue = .second
+    textEntry.wrappedValue = "after"
+
+    #expect(boolEntry.id == boolID)
+    #expect(optionsEntry.id == optionsID)
+    #expect(textEntry.id == textID)
+    #expect(boolEntry.renderID != boolRenderID)
+    #expect(optionsEntry.renderID != optionsRenderID)
+    #expect(textEntry.renderID != textRenderID)
+}
+
+@MainActor
+@Test func debugToolUpdatesCallHandlersWhileRefreshingOnlyRenderIdentity() {
+    let boolEntry = DebugEntryBool(title: "Bool", wrappedValue: false)
+    let optionsEntry = DebugEntryOptions(title: "Options", wrappedValue: TestDebugOption.first)
+    let textEntry = DebugEntryTextField(title: "Text", wrappedValue: "before")
+
+    let boolID = boolEntry.id
+    let optionsID = optionsEntry.id
+    let textID = textEntry.id
+    let boolRenderID = boolEntry.renderID
+    let optionsRenderID = optionsEntry.renderID
+    let textRenderID = textEntry.renderID
+    var updatedBoolValue: Bool?
+    var updatedOptionsValue: TestDebugOption?
+    var updatedTextValue: String?
+
+    boolEntry.onUpdateFromDebugTool = { updatedBoolValue = $0 }
+    optionsEntry.onUpdateFromDebugTool = { updatedOptionsValue = $0 }
+    textEntry.onUpdateFromDebugTool = { updatedTextValue = $0 }
+
+    boolEntry.updateFromDebugTool(true)
+    optionsEntry.updateFromDebugTool(.second)
+    textEntry.updateFromDebugTool("after")
+
+    #expect(boolEntry.wrappedValue == true)
+    #expect(optionsEntry.wrappedValue == .second)
+    #expect(textEntry.wrappedValue == "after")
+    #expect(updatedBoolValue == true)
+    #expect(updatedOptionsValue == .second)
+    #expect(updatedTextValue == "after")
+    #expect(boolEntry.id == boolID)
+    #expect(optionsEntry.id == optionsID)
+    #expect(textEntry.id == textID)
+    #expect(boolEntry.renderID != boolRenderID)
+    #expect(optionsEntry.renderID != optionsRenderID)
+    #expect(textEntry.renderID != textRenderID)
+}
+
+@MainActor
+@Test func anyDebugEntryForwardsRenderIdentity() {
+    let entry = DebugEntryBool(title: "Bool", wrappedValue: false)
+    let anyEntry = AnyDebugEntry(entry)
+    let initialRenderID = anyEntry.renderID
+
+    entry.wrappedValue = true
+
+    #expect(anyEntry.id == entry.id)
+    #expect(anyEntry.renderID == entry.renderID)
+    #expect(anyEntry.renderID != initialRenderID)
 }
 
 @Test func liveFeedQueryFiltersBySourceAndSearchText() {

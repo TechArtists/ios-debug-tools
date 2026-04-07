@@ -159,6 +159,7 @@ struct TADebugToolSectionsView: View {
     private func entryList(for entries: [any DebugEntryProtocol]) -> some View {
         ForEach(entries, id: \.id) { entry in
             entry.renderView
+                .id(entry.renderID)
         }
     }
 }

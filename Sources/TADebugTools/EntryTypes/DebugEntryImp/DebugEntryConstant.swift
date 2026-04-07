@@ -36,9 +36,9 @@ public class DebugEntryConstant<T: Sendable>: DebugEntryProtocol {
     weak public var taDebugToolConfiguration: TADebugToolConfiguration?
     
     public var id: UUID
+    public var renderID: UUID
     public var title: String
-    @Published
-    public var wrappedValue: T
+    @Published public var wrappedValue: T
     public var labels: [DebugToolLabel]
     
     public lazy var stream: AsyncStream<Value> = { [weak self] in
@@ -64,6 +64,7 @@ public class DebugEntryConstant<T: Sendable>: DebugEntryProtocol {
         labels: [DebugToolLabel] = [], taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
+        self.renderID = id
         self.title = title
         self.labels = labels
         self.storage = storage

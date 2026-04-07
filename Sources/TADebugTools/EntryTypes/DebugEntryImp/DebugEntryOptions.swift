@@ -35,14 +35,15 @@ import Combine
 public class DebugEntryOptions<E: RawRepresentable & CaseIterable & Hashable>: DebugEntryProtocol where E.RawValue == String {
 
     public var id: UUID
+    @Published public var renderID: UUID
     public var title: String
 
     @Published public var wrappedValue: E {
         didSet {
-            if let taDebugToolConfiguration, wrappedValue.rawValue != oldValue.rawValue {
-                id = UUID()
+            if wrappedValue.rawValue != oldValue.rawValue {
+                renderID = UUID()
                 storage?.update(wrappedValue)
-                taDebugToolConfiguration.objectWillChange.send()
+                taDebugToolConfiguration?.objectWillChange.send()
             }
         }
     }
@@ -71,6 +72,7 @@ public class DebugEntryOptions<E: RawRepresentable & CaseIterable & Hashable>: D
 
     public init( title: String, wrappedValue: E, storage: AnyStorage<E>? = nil, labels: [DebugToolLabel] = [], taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID() ) {
         self.id = id
+        self.renderID = id
         self.title = title
         self.labels = labels
         self.storage = storage

@@ -37,13 +37,13 @@ public final class DebugEntryBool: DebugEntryProtocol {
     weak public var taDebugToolConfiguration: TADebugToolConfiguration?
 
     public var id: UUID
+    @Published public var renderID: UUID
     public var title: String
-    @Published
-    public var wrappedValue: Bool {
+    @Published public var wrappedValue: Bool {
         didSet {
             isInitialized = true
             if wrappedValue != oldValue {
-                id = UUID()
+                renderID = UUID()
                 taDebugToolConfiguration?.objectWillChange.send()
                 storage?.update(wrappedValue)
             }
@@ -78,6 +78,7 @@ public final class DebugEntryBool: DebugEntryProtocol {
         taDebugToolConfiguration: TADebugToolConfiguration? = nil, id: UUID = UUID()
     ) {
         self.id = id
+        self.renderID = id
         self.title = title
         if let wrappedValue {
             self.wrappedValue = wrappedValue

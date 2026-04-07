@@ -37,6 +37,7 @@ public final class AnyDebugEntry<Value>: DebugEntryProtocol {
     private let _wrappedValue: () -> Value
     private let _onUpdateFromApp: (Value) -> Void
     private let _id: () -> UUID
+    private let _renderID: () -> UUID
     private let _title: () -> String
     private let _labels: () -> [DebugToolLabel]
     private let _stream: () -> AsyncStream<Value>
@@ -51,6 +52,7 @@ public final class AnyDebugEntry<Value>: DebugEntryProtocol {
         _wrappedValue = { base.wrappedValue }
         _onUpdateFromApp = base.onUpdateFromApp
         _id = { base.id }
+        _renderID = { base.renderID }
         _title = { base.title }
         _labels = { base.labels }
         _stream = { base.stream }
@@ -66,6 +68,7 @@ public final class AnyDebugEntry<Value>: DebugEntryProtocol {
     public var onUpdateFromApp: ((Value) -> Void) { _onUpdateFromApp }
     public var storage: AnyStorage<Value>?
     public var id: UUID { _id() }
+    public var renderID: UUID { _renderID() }
     public var title: String { _title() }
     public var labels: [DebugToolLabel] { _labels() }
     public var stream: AsyncStream<Value> { _stream() }
