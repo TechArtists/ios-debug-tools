@@ -107,4 +107,14 @@ public class DebugEntryTextField: DebugEntryProtocol {
             }
             .store(in: &cancellables)
     }
+
+    @MainActor
+    func updateFromDebugTool(_ newValue: String) {
+        guard newValue != wrappedValue else { return }
+
+        wrappedValue = newValue
+        continuation?.yield(newValue)
+        onUpdateFromDebugTool?(newValue)
+        taDebugToolConfiguration?.refreshEntryVisibility()
+    }
 }

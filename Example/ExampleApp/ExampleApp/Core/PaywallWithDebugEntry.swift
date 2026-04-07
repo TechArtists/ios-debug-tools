@@ -36,24 +36,62 @@ struct PaywallWithDebugEntryView: View {
     @EnvironmentObject var debugToolConfiguration: MyDebugToolConfiguration
     
     @AppStorage("isPremium") var isPremium: Bool = UserDefaults.standard.bool(forKey: "isPremium")
+
+    @State private var isDebugToolPresented = false
+    @State private var debugToolUpdateCount = 0
+    @State private var lastDebugToolValueDescription = "None"
     
     var body: some View {
-        VStack {
-            Toggle(isOn: $isPremium) {
-                Text("Is Premium")
-            }
-            .onAppear {
-                debugToolConfiguration.isPremiumEntry.onUpdateFromDebugTool = { newValue in
-                    if self.isPremium != newValue {
-                        self.isPremium = newValue
-                    }
+        Form {
+            Section("App State") {
+                Toggle(isOn: $isPremium) {
+                    Text("Is Premium")
+                }
+
+                LabeledContent("Persisted Value") {
+                    Text(isPremium ? "true" : "false")
                 }
             }
-            .onChange(
-                of: isPremium,
-                perform: debugToolConfiguration.isPremiumEntry.onUpdateFromApp
-            )
+
+            Section("Debug Entry Callback") {
+                LabeledContent("Callback Count") {
+                    Text("\(debugToolUpdateCount)")
+                }
+
+                LabeledContent("Last Debug Value") {
+                    Text(lastDebugToolValueDescription)
+                }
+
+                Button("Open Debug Tool") {
+                    isDebugToolPresented = true
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Section("How To Reproduce") {
+                Text("Open the debug tool, go to App Settings, then toggle `Is Premium`. The callback count and persisted value should update immediately.")
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding()
+        .navigationTitle("Debug Entry Callback")
+        .onAppear(perform: configureDebugEntry)
+        .onChange(
+            of: isPremium,
+            perform: debugToolConfiguration.isPremiumEntry.onUpdateFromApp
+        )
+        .sheet(isPresented: $isDebugToolPresented) {
+            TADebugToolView(configuration: debugToolConfiguration)
+        }
+    }
+
+    private func configureDebugEntry() {
+        debugToolConfiguration.isPremiumEntry.onUpdateFromDebugTool = { newValue in
+            debugToolUpdateCount += 1
+            lastDebugToolValueDescription = newValue ? "true" : "false"
+
+            if isPremium != newValue {
+                isPremium = newValue
+            }
+        }
     }
 }

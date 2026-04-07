@@ -36,14 +36,16 @@ public struct DebugEntryBoolView: View {
     @ObservedObject var debugEntry: DebugEntryBool
     
     public var body: some View {
-        Toggle(isOn: $debugEntry.wrappedValue) {
+        Toggle(isOn: debugToolValueBinding) {
             Text(debugEntry.title)
         }
-        .onChange(of: debugEntry.wrappedValue) { newValue in
-            debugEntry.continuation?.yield(newValue)
-            debugEntry.onUpdateFromDebugTool?(newValue)
-            debugEntry.taDebugToolConfiguration?.refreshEntryVisibility()
-        }
         .disabled(!debugEntry.isInitialized)
+    }
+
+    private var debugToolValueBinding: Binding<Bool> {
+        Binding(
+            get: { debugEntry.wrappedValue },
+            set: { debugEntry.updateFromDebugTool($0) }
+        )
     }
 }

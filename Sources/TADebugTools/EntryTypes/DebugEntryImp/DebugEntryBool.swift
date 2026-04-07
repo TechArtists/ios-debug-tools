@@ -104,5 +104,14 @@ public final class DebugEntryBool: DebugEntryProtocol {
             }
             .store(in: &cancellables)
     }
-}
 
+    @MainActor
+    func updateFromDebugTool(_ newValue: Bool) {
+        guard newValue != wrappedValue else { return }
+
+        wrappedValue = newValue
+        continuation?.yield(newValue)
+        onUpdateFromDebugTool?(newValue)
+        taDebugToolConfiguration?.refreshEntryVisibility()
+    }
+}

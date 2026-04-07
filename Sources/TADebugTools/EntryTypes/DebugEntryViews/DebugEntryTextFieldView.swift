@@ -33,14 +33,24 @@ import SwiftUI
 public struct DebugEntryTextFieldView: View {
     
     @ObservedObject var debugEntry: DebugEntryTextField
+    @State private var draftValue = ""
     
     public var body: some View {
         VStack( alignment: .leading) {
             Text(debugEntry.title)
-            TextField(debugEntry.title, text: $debugEntry.wrappedValue)
+            TextField(debugEntry.title, text: $draftValue)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
+                .submitLabel(.done)
+                .onSubmit {
+                    debugEntry.updateFromDebugTool(draftValue)
+                }
                 .disabled(!debugEntry.isInitialized)
         }
-        
+        .onAppear {
+            draftValue = debugEntry.wrappedValue
+        }
+        .onChange(of: debugEntry.wrappedValue) { newValue in
+            draftValue = newValue
+        }
     }
 }

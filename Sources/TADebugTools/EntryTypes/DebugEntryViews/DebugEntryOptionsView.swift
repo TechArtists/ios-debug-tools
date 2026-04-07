@@ -35,16 +35,18 @@ public struct DebugEntryOptionsView<E: RawRepresentable & CaseIterable>: View wh
     @ObservedObject var debugEntry: DebugEntryOptions<E>
 
     public var body: some View {
-        Picker(debugEntry.title, selection: $debugEntry.wrappedValue) {
+        Picker(debugEntry.title, selection: debugToolValueBinding) {
             ForEach(debugEntry.possibleValues, id: \.self) { option in
                 Text("\(option.rawValue)")
                     .tag(option)
             }
         }
-        .onChange(of: debugEntry.wrappedValue) { newValue in
-            debugEntry.continuation?.yield(newValue)
-            debugEntry.onUpdateFromDebugTool?(newValue)
-            debugEntry.taDebugToolConfiguration?.refreshEntryVisibility()
-        }
+    }
+
+    private var debugToolValueBinding: Binding<E> {
+        Binding(
+            get: { debugEntry.wrappedValue },
+            set: { debugEntry.updateFromDebugTool($0) }
+        )
     }
 }

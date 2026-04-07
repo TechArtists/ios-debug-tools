@@ -94,4 +94,14 @@ public class DebugEntryOptions<E: RawRepresentable & CaseIterable & Hashable>: D
             }
             .store(in: &cancellables)
     }
+
+    @MainActor
+    func updateFromDebugTool(_ newValue: E) {
+        guard newValue != wrappedValue else { return }
+
+        wrappedValue = newValue
+        continuation?.yield(newValue)
+        onUpdateFromDebugTool?(newValue)
+        taDebugToolConfiguration?.refreshEntryVisibility()
+    }
 }
