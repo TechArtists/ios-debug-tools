@@ -124,7 +124,7 @@ private struct TADebugPasswordView: View {
 
 // MARK: - Sections View
 struct TADebugToolSectionsView: View {
-    let configuration: TADebugToolConfiguration
+    @ObservedObject var configuration: TADebugToolConfiguration
 
     var body: some View {
         List {
