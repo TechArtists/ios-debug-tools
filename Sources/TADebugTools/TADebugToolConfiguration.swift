@@ -98,6 +98,11 @@ open class TADebugToolConfiguration: ObservableObject {
         objectWillChange.send()
     }
 
+    public func refreshEntryVisibility() {
+        guard !entryVisibilityPredicates.isEmpty else { return }
+        objectWillChange.send()
+    }
+
     func isEntryVisible(_ entry: any DebugEntryProtocol) -> Bool {
         entryVisibilityPredicates[ObjectIdentifier(entry as AnyObject)]?() ?? true
     }

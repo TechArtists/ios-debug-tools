@@ -42,6 +42,7 @@ public struct DebugEntryBoolView: View {
         .onChange(of: debugEntry.wrappedValue) { newValue in
             debugEntry.continuation?.yield(newValue)
             debugEntry.onUpdateFromDebugTool?(newValue)
+            debugEntry.taDebugToolConfiguration?.refreshEntryVisibility()
         }
         .disabled(!debugEntry.isInitialized)
     }

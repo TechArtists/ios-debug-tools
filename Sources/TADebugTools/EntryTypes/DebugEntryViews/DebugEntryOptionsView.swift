@@ -44,6 +44,7 @@ public struct DebugEntryOptionsView<E: RawRepresentable & CaseIterable>: View wh
         .onChange(of: debugEntry.wrappedValue) { newValue in
             debugEntry.continuation?.yield(newValue)
             debugEntry.onUpdateFromDebugTool?(newValue)
+            debugEntry.taDebugToolConfiguration?.refreshEntryVisibility()
         }
     }
 }
