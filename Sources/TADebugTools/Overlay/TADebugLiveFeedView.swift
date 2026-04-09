@@ -197,6 +197,13 @@ struct TADebugLiveFeedView: View {
                             proxy.scrollTo(lastItemID, anchor: .bottom)
                         }
                     }
+                    .onAppear {
+                        guard autoScrollEnabled, let lastItemID = filteredItems.last?.id else { return }
+
+                        withAnimation {
+                            proxy.scrollTo(lastItemID, anchor: .bottom)
+                        }
+                    }
                 }
             }
         }
