@@ -97,6 +97,22 @@ import Combine
         }
         self.debugSection = section
     }
+
+    public init(
+        wrappedValue: Value, key: String, title: String? = nil, section: DebugToolSection = .others,
+        range: ClosedRange<Double>, step: Double? = nil, storage: AnyStorage<Value>? = nil
+    ) where Value == Double {
+        let storedValue = UserDefaults.standard.object(forKey: key) as? Double ?? wrappedValue
+        let debugEntry = DebugEntrySlider(
+            title: title ?? key.convertToTitleFormat,
+            wrappedValue: storedValue,
+            range: range,
+            step: step,
+            storage: storage ?? AnyStorage(UserDefaultsStorage(key: key, defaultValue: storedValue))
+        )
+        self.anyDebugEntry = AnyDebugEntry(debugEntry)
+        self.debugSection = section
+    }
     
     public init(
         wrappedValue: Value, title: String,

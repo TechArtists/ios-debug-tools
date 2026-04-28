@@ -51,24 +51,30 @@ private enum TestDebugOption: String, CaseIterable, Hashable {
 @Test func valueChangesRefreshRenderIdentityWithoutChangingEntryIdentity() {
     let boolEntry = DebugEntryBool(title: "Bool", wrappedValue: false)
     let optionsEntry = DebugEntryOptions(title: "Options", wrappedValue: TestDebugOption.first)
+    let sliderEntry = DebugEntrySlider(title: "Slider", wrappedValue: 0.25, range: 0...1)
     let textEntry = DebugEntryTextField(title: "Text", wrappedValue: "before")
 
     let boolID = boolEntry.id
     let optionsID = optionsEntry.id
+    let sliderID = sliderEntry.id
     let textID = textEntry.id
     let boolRenderID = boolEntry.renderID
     let optionsRenderID = optionsEntry.renderID
+    let sliderRenderID = sliderEntry.renderID
     let textRenderID = textEntry.renderID
 
     boolEntry.wrappedValue = true
     optionsEntry.wrappedValue = .second
+    sliderEntry.wrappedValue = 0.75
     textEntry.wrappedValue = "after"
 
     #expect(boolEntry.id == boolID)
     #expect(optionsEntry.id == optionsID)
+    #expect(sliderEntry.id == sliderID)
     #expect(textEntry.id == textID)
     #expect(boolEntry.renderID != boolRenderID)
     #expect(optionsEntry.renderID != optionsRenderID)
+    #expect(sliderEntry.renderID != sliderRenderID)
     #expect(textEntry.renderID != textRenderID)
 }
 
@@ -76,38 +82,59 @@ private enum TestDebugOption: String, CaseIterable, Hashable {
 @Test func debugToolUpdatesCallHandlersWhileRefreshingOnlyRenderIdentity() {
     let boolEntry = DebugEntryBool(title: "Bool", wrappedValue: false)
     let optionsEntry = DebugEntryOptions(title: "Options", wrappedValue: TestDebugOption.first)
+    let sliderEntry = DebugEntrySlider(title: "Slider", wrappedValue: 0.25, range: 0...1)
     let textEntry = DebugEntryTextField(title: "Text", wrappedValue: "before")
 
     let boolID = boolEntry.id
     let optionsID = optionsEntry.id
+    let sliderID = sliderEntry.id
     let textID = textEntry.id
     let boolRenderID = boolEntry.renderID
     let optionsRenderID = optionsEntry.renderID
+    let sliderRenderID = sliderEntry.renderID
     let textRenderID = textEntry.renderID
     var updatedBoolValue: Bool?
     var updatedOptionsValue: TestDebugOption?
+    var updatedSliderValue: Double?
     var updatedTextValue: String?
 
     boolEntry.onUpdateFromDebugTool = { updatedBoolValue = $0 }
     optionsEntry.onUpdateFromDebugTool = { updatedOptionsValue = $0 }
+    sliderEntry.onUpdateFromDebugTool = { updatedSliderValue = $0 }
     textEntry.onUpdateFromDebugTool = { updatedTextValue = $0 }
 
     boolEntry.updateFromDebugTool(true)
     optionsEntry.updateFromDebugTool(.second)
+    sliderEntry.updateFromDebugTool(0.75)
     textEntry.updateFromDebugTool("after")
 
     #expect(boolEntry.wrappedValue == true)
     #expect(optionsEntry.wrappedValue == .second)
+    #expect(sliderEntry.wrappedValue == 0.75)
     #expect(textEntry.wrappedValue == "after")
     #expect(updatedBoolValue == true)
     #expect(updatedOptionsValue == .second)
+    #expect(updatedSliderValue == 0.75)
     #expect(updatedTextValue == "after")
     #expect(boolEntry.id == boolID)
     #expect(optionsEntry.id == optionsID)
+    #expect(sliderEntry.id == sliderID)
     #expect(textEntry.id == textID)
     #expect(boolEntry.renderID != boolRenderID)
     #expect(optionsEntry.renderID != optionsRenderID)
+    #expect(sliderEntry.renderID != sliderRenderID)
     #expect(textEntry.renderID != textRenderID)
+}
+
+@MainActor
+@Test func sliderEntryClampsValuesToRange() {
+    let sliderEntry = DebugEntrySlider(title: "Slider", wrappedValue: 5, range: 0...1)
+
+    #expect(sliderEntry.wrappedValue == 1)
+
+    sliderEntry.updateFromDebugTool(-0.5)
+
+    #expect(sliderEntry.wrappedValue == 0)
 }
 
 @MainActor

@@ -516,6 +516,7 @@ Organize your debug entries using these predefined sections:
 - **DebugEntryConstant**: Read-only display of values  
 - **DebugEntryTextField**: Text input fields  
 - **DebugEntryTextFieldAlertButton**: Buttons that show text input dialogs  
+- **DebugEntrySlider**: Slider controls for double values  
 - **DebugEntryOptions**: Dropdown selection for enum values  
 
 ### Custom Entry Creation
