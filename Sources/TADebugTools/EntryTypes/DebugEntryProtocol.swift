@@ -44,7 +44,7 @@ public protocol DebugEntryProtocol: Identifiable, ObservableObject {
     var labels: [DebugToolLabel] { get }
     var stream: AsyncStream<Value> { get }
     var continuation: AsyncStream<Value>.Continuation? { get }
-    var onUpdateFromDebugTool: ((Value) -> Void)? { get }
+    var onUpdateFromDebugTool: ((Value) -> Void)? { get set }
     var onUpdateFromApp: ((Value) -> Void) { get }
     var storage: AnyStorage<Value>? { get }
     

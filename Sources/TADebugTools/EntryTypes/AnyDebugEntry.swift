@@ -43,6 +43,7 @@ public final class AnyDebugEntry<Value>: DebugEntryProtocol {
     private let _stream: () -> AsyncStream<Value>
     private let _continuation: () -> AsyncStream<Value>.Continuation?
     private let _onUpdateFromDebugTool: () -> ((Value) -> Void)?
+    private let _setOnUpdateFromDebugTool: (((Value) -> Void)?) -> Void
     private let _renderView: @MainActor () -> AnyView
     private let _getConfig: () -> TADebugToolConfiguration?
     private let _setConfig: (TADebugToolConfiguration?) -> Void
@@ -58,6 +59,7 @@ public final class AnyDebugEntry<Value>: DebugEntryProtocol {
         _stream = { base.stream }
         _continuation = { base.continuation }
         _onUpdateFromDebugTool = { base.onUpdateFromDebugTool }
+        _setOnUpdateFromDebugTool = { newValue in base.onUpdateFromDebugTool = newValue }
         _renderView = { base.renderView }
         _getConfig = { base.taDebugToolConfiguration }
         _setConfig = { newValue in base.taDebugToolConfiguration = newValue }
@@ -73,7 +75,10 @@ public final class AnyDebugEntry<Value>: DebugEntryProtocol {
     public var labels: [DebugToolLabel] { _labels() }
     public var stream: AsyncStream<Value> { _stream() }
     public var continuation: AsyncStream<Value>.Continuation? { _continuation() }
-    public var onUpdateFromDebugTool: ((Value) -> Void)? { _onUpdateFromDebugTool() }
+    public var onUpdateFromDebugTool: ((Value) -> Void)? {
+        get { _onUpdateFromDebugTool() }
+        set { _setOnUpdateFromDebugTool(newValue) }
+    }
     @MainActor public var renderView: AnyView { _renderView() }
     public var taDebugToolConfiguration: TADebugToolConfiguration? {
         get { _getConfig() }
