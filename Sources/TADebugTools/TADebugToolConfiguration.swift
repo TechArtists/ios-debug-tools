@@ -49,7 +49,7 @@ open class TADebugToolConfiguration: ObservableObject {
     public init(passwordType: PasswordType = .static(password: "")) {
         self.passwordManager = PasswordManager(passwordType: passwordType)
         self.embeddedDebugLauncherEnabledEntry = .init(
-            title: "Enable Embedded Debug Launcher",
+            title: "Floating Log Viewer",
             wrappedValue: UserDefaults.standard.bool(forKey: DefaultsConstants.embeddedDebugLauncherEnabled),
             labels: [.persistsBetweenSessions]
         )
